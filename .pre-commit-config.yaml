@@ -1,0 +1,59 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+    -   id: trailing-whitespace
+        exclude: |
+            (?x)^(
+                .*\.(ico|jpg|svg|png|user|xml|yaml|pro|pri|qrc|ui|dll|a|o|so|dll\.a|hex|mdl|slx|lock)|
+                .*inc/.*|
+                .*libs/.*
+            )$
+    -   id: end-of-file-fixer
+        exclude: |
+            (?x)^(
+                .*\.(ico|jpg|svg|png|user|xml|yaml|pro|pri|qrc|ui|dll|a|o|so|dll\.a|hex|mdl|slx|lock)|
+            )$
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: check-executables-have-shebangs
+    -   id: mixed-line-ending
+    -   id: check-merge-conflict
+    -   id: check-docstring-first
+    -   id: check-case-conflict
+-   repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+    -   id: black
+        args: [--config=pyproject.toml]
+-   repo: https://github.com/hadialqattan/pycln
+    rev: v1.3.2
+    hooks:
+    -   id: pycln
+        args: [--config=pyproject.toml]
+-   repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+    -   id: isort
+        files: "\\.(py)$"
+        args: [--settings-path=pyproject.toml]
+-   repo: https://github.com/python-poetry/poetry
+    rev: '1.2.0b1'  # add version here
+    hooks:
+      - id: poetry-check
+      - id: poetry-lock
+      - id: poetry-export
+        args: ["-f", "requirements.txt", "-o", "requirements.txt"]
+-   repo: https://github.com/PyCQA/pylint
+    rev: v2.13.8
+    hooks:
+    -   id: pylint
+        args:
+            - --disable=C0330, R0801, W0511
+        additional_dependencies:
+            - flexsea
+            - cleo
+        files:  "" # No files

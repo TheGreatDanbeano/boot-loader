@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "boot-loader"
+version = "0.1.0"
+description = "Loads firmware onto Dephy's devices."
+authors = ["Carlos Asmat <casmat@dephy.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+cleo = "^0.8.1"
+flexsea = "^7.2.6"
+boto3 = "^1.22.6"
+
+[tool.poetry.dev-dependencies]
+black = "^22.3.0"
+pylint = "^2.13.8"
+pytest = "^7.1.2"
+flake8 = "^4.0.1"
+pre-commit = "^2.18.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
