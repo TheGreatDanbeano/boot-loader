@@ -2,11 +2,10 @@
 
 """Dephy's firmware loading tool."""
 
-from commands import ListFwCommand
 from cleo import Application
+from commands import ListFirmwareCmd
+application = Application() 
+application.add(ListFirmwareCmd())
 
-application = Application()
-application.add(ListFwCommand())
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     application.run()
