@@ -1,28 +1,39 @@
 """List firmware command"""
 
-from cleo import Command
-import os
 import datetime
+import os
+
+from cleo import Command
+
 
 class Cmd(Command):
     """docstring for Cmd"""
 
+    def __init__(self, preferences):
+        self._prefs = preferences
+        super().__init__()
+
     @staticmethod
-    def get_time():
+    def get_time() -> dict:
         return f"[{datetime.datetime.now().replace(microsecond=0).isoformat()}] "
 
-    def info(self, val, print_time=False):
+    def info(self, val, print_time=False) -> None:
         time = self.get_time() if print_time else ""
         self.line(f"<info>{time}{val}</info>")
 
-    def title(self, val):
+    def title(self, val) -> None:
         self.add_style("title", options=["bold"])
         self.line(f"<title>{val}</title>")
 
-    def err(self, val, print_time=False):
+    def err(self, val, print_time=False) -> None:
         time = self.get_time() if print_time else ""
-        self.line(f"<error>{time}{val}</error>")
+        self.line(f"<error>[e] {time}{val}</error>")
 
+    def handle(self) -> int:
+        """
+        Executes the command.
+        """
+        raise NotImplementedError()
 
 
 class ListFirmwareCmd(Cmd):
@@ -30,20 +41,21 @@ class ListFirmwareCmd(Cmd):
     List available firmware
 
     list
-        {path=~/.dephy/bootload/firmware : specify the firmware path}
+        {path? : specify the firmware path}
     """
 
     def handle(self):
         """handle command"""
         path = self.argument("path")
+        if not path:
+            path = self._prefs["abs_paths"]["fw"]
         path = os.path.abspath(os.path.expanduser(path))
 
         try:
+            # TODO(CA): Add more filtering to files in path
+            firmware_list = os.listdir(path)
 
-            firmware_list = [file for file in os.listdir(path) if os.path.isdir(file)]
-            firmware_list = [file for file in os.listdir(path)]
-
-            self.title(f"Available Firmware at {path}")
+            self.title(f"Available Firmware at {path}:")
             for firmware in firmware_list:
                 self.info(f"- {firmware}")
         except FileNotFoundError as err:

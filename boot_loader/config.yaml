@@ -1,0 +1,5 @@
+app_dir: ~/.dephy/bootload
+fw_dir: firmware
+utils_dir: utils
+utils_bucket: bootloader-tools-dephy-com
+fw_bucket: something
