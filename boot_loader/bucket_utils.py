@@ -1,8 +1,10 @@
 """bucket_utils.py"""
 
-import os
 import errno
+import os
+
 import boto3
+
 
 def assert_dir_exists(path):
     """
@@ -11,10 +13,11 @@ def assert_dir_exists(path):
     """
     try:
         os.makedirs(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
+    except OSError as err:
+        if err.errno != errno.EEXIST:
             raise
 
+def list_dirs(bucket, path)
 
 def download_dir(bucket, path, target):
     """
@@ -27,6 +30,8 @@ def download_dir(bucket, path, target):
 
     client = boto3.client('s3')
 
+    print(f"Path: {path}")
+
     # Handle missing / at end of prefix
     if not path.endswith('/'):
         path += '/'
@@ -34,13 +39,17 @@ def download_dir(bucket, path, target):
     paginator = client.get_paginator('list_objects_v2')
     for result in paginator.paginate(Bucket=bucket, Prefix=path):
         # Download each file individually
-        for key in result['Contents']:
-            # Calculate relative path
-            rel_path = key['Key'][len(path):]
-            # Skip paths ending in /
-            if not key['Key'].endswith('/'):
-                local_file_path = os.path.join(target, rel_path)
-                # Make sure directories exist
-                local_file_dir = os.path.dirname(local_file_path)
-                assert_dir_exists(local_file_dir)
-                client.download_file(bucket, key['Key'], local_file_path)
+        print (result.keys())
+        try:
+            for key in result['Contents']:
+                # Calculate relative path
+                rel_path = key['Key'][len(path):]
+                # Skip paths ending in /
+                if not key['Key'].endswith('/'):
+                    local_file_path = os.path.join(target, rel_path)
+                    # Make sure directories exist
+                    local_file_dir = os.path.dirname(local_file_path)
+                    assert_dir_exists(local_file_dir)
+                    client.download_file(bucket, key['Key'], local_file_dir)
+        except KeyError:
+            pass

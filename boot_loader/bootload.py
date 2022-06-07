@@ -3,13 +3,13 @@
 """Dephy's firmware loading tool."""
 
 import os
+from commands import ListFirmwareCmd
 from pathlib import Path
 
 import boto3
+import bucket_utils as bu
 import yaml
 from cleo import Application
-from commands import ListFirmwareCmd
-import bucket_utils as bu
 
 
 def load_cfg(path):
@@ -25,17 +25,13 @@ def init_dirs(paths):
 
 
 def download_utils(path, bucket):
-    """Download """
+    """Download dependencies"""
     # Empty
     for file in os.listdir(path):
         file_path = os.path.join(path, file)
         os.remove(file_path)
 
-    bu.download_dir(bucket, '/', path)
-
-client = boto3.client('s3')
-
-download_dir(client, 'bucket-name', 'path/to/data', 'downloads')
+    bu.download_dir(bucket, '', path)
 
 def main():
     """Main Bootloader app"""
@@ -51,7 +47,7 @@ def main():
     cfg["abs_paths"]["utils"] = os.path.join(cfg["abs_paths"]["app"], cfg["utils_dir"])
     init_dirs(cfg["abs_paths"].values())
 
-    download_utils(cfg["abs_paths"]["utils"])
+    download_utils(cfg["abs_paths"]["utils"], cfg["utils_bucket"])
 
     application = Application()
     application.add(ListFirmwareCmd(cfg))
