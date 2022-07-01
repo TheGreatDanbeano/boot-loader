@@ -17,8 +17,6 @@ def assert_dir_exists(path):
         if err.errno != errno.EEXIST:
             raise
 
-def list_dirs(bucket, path)
-
 def download_dir(bucket, path, target):
     """
     Downloads recursively the given S3 path to the target directory.

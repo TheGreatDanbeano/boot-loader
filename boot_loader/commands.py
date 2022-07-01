@@ -3,7 +3,6 @@
 import datetime
 import os
 
-import bucket_utils as bu
 from cleo import Command
 
 
