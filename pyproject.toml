@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "bootloader"
+version = "0.1.0"
+description = "A tool for loading firmware onto Dephy devices."
+authors = ["Jared <jcoughlin@dephy.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+cleo = "^0.8.1"
+PyYAML = "^6.0"
+rsyncs3 = "^0.2.0"
+pyserial = "^3.5"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.8.0"
+flake8 = "^5.0.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+bootload = 'bootloader.core.main:main'
