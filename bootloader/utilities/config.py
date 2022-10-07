@@ -22,6 +22,7 @@ firmwareDir = os.path.join(cacheDir, "firmware")
 
 # Public bucket where bootloading tools are stored
 toolsBucket = "https://bootloader-tools-dephy-com.s3.us-east-2.amazonaws.com/"
+firmwareBucket = "https://dephy-firmware.s3.us-east-2.amazonaws.com/"
 
 
 # ============================================
