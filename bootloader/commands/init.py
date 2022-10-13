@@ -8,6 +8,7 @@ from rsyncs3 import RsyncS3
 from bootloader.exceptions.exceptions import AccessKeyError
 from bootloader.exceptions.exceptions import S3DownloadError
 from bootloader.exceptions.exceptions import UnsupportedOSError
+from bootloader.io.write import display_logo
 from bootloader.utilities.config import bootloaderTools
 from bootloader.utilities.config import firmwareDir
 from bootloader.utilities.config import supportedOS
@@ -31,6 +32,14 @@ class InitCommand(Command):
         """
         Entry point for the command. Steps:
         """
+        display_logo(self.line)
+
+        self.line("Welcome to the Dephy bootloader!")
+
+        msg = "<warning>Please make sure the battery is removed!</warning>"
+        if not self.confirm(msg):
+            sys.exit(1)
+
         try:
             self._check_os()
         except UnsupportedOSError as err:

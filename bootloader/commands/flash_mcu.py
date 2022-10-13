@@ -5,7 +5,6 @@ from serial.tools.list_ports import comports
 
 from bootloader.exceptions.exceptions import DeviceNotFoundError
 from bootloader.exceptions.exceptions import UnknownMCUError
-from bootloader.io.write import display_logo
 from bootloader.utilities.config import mcuTargets
 
 
@@ -25,7 +24,7 @@ class FlashMCUCommand(Command):
     _target = None
     _fwVersion = None
     _device = None
-    _port = None
+    _port = ""
 
     # -----
     # handle
@@ -36,14 +35,12 @@ class FlashMCUCommand(Command):
         """
         self._target = self.argument("target")
         self._fwVersion = self.argument("fwVersion") 
-        self.port = self.option("port")
-
-        display_logo(self.line)
+        self._port = self.option("port")
 
         self.call("init")
 
         try:
-            self._find_device()
+            self._device = find_device(self._port)
         except DeviceNotFoundError as err:
             self.line(err)
             sys.exit(1)
@@ -62,7 +59,7 @@ class FlashMCUCommand(Command):
             self.line(f"<info>Flashing {mcu}...</info>")
             self.call("download-firmware", f"{_fwv} {_devType} {mcu} {_hwVer}")
             fwFile = self._build_firmware_file(_fwv, _devType, _hwVer, mcu)
-            self._set_tunnel_mode(mcu)
+            set_tunnel_mode(mcu)
 
             if mcu == "habs":
                 cmd = self._flash_habs(fwFile)
@@ -104,35 +101,6 @@ class FlashMCUCommand(Command):
         if not self._device.hasHabs and "habs" in self._targets:
             self._targets.remove("habs")
 
-    # -----
-    # _find_device
-    # -----
-    def _find_device(self) -> None:
-        """
-        Tries to establish a connection to the Dephy device given by
-        the user-supplied port. If no port is supplied, then we loop
-        over all available serial ports to try and find a valid device.
-        """
-        if not self._port:
-            for port in comports():
-                device = Device(port, 230400)
-                try:
-                    device.open()
-                except IOError:
-                    continue
-                self._device = device
-                break
-
-        else:
-            device = Device(self._port, 230400)
-            try:
-                device.open()
-            except IOError:
-                raise DeviceNotFoundError(port=self._port)
-            self._device = device
-
-        if not self._device:
-            raise DeviceNotFoundError()
 
     # -----
     # _build_firmware_file
