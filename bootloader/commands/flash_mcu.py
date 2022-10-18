@@ -1,11 +1,19 @@
+import os
+import subprocess as sub
 import sys
+from time import sleep
+from typing import List
 
 from cleo import Command
-from serial.tools.list_ports import comports
 
 from bootloader.exceptions.exceptions import DeviceNotFoundError
 from bootloader.exceptions.exceptions import UnknownMCUError
+from bootloader.utilities.config import baudRate
+from bootloader.utilities.config import firmwareDir
 from bootloader.utilities.config import mcuTargets
+from bootloader.utilities.config import toolsDir
+from bootloader.utilities.system import find_device
+from bootloader.utilities.system import set_tunnel_mode
 
 
 # ============================================
@@ -25,6 +33,7 @@ class FlashMCUCommand(Command):
     _fwVersion = None
     _device = None
     _port = ""
+    _targets = []
 
     # -----
     # handle
@@ -34,7 +43,7 @@ class FlashMCUCommand(Command):
         Entry point for the command.
         """
         self._target = self.argument("target")
-        self._fwVersion = self.argument("fwVersion") 
+        self._fwVersion = self.argument("fwVersion")
         self._port = self.option("port")
 
         self.call("init")
@@ -56,10 +65,9 @@ class FlashMCUCommand(Command):
         _hwVer = self._device.rigidVersion
 
         for mcu in self._targets:
-            self.line(f"<info>Flashing {mcu}...</info>")
             self.call("download-firmware", f"{_fwv} {_devType} {mcu} {_hwVer}")
             fwFile = self._build_firmware_file(_fwv, _devType, _hwVer, mcu)
-            set_tunnel_mode(mcu)
+            set_tunnel_mode(self._port, baudRate, mcu, 20)
 
             if mcu == "habs":
                 cmd = self._flash_habs(fwFile)
@@ -70,15 +78,14 @@ class FlashMCUCommand(Command):
             elif mcu == "mn":
                 cmd = self._flash_mn(fwFile)
 
-            process = sub.Popen(cmd)
-            process.wait()
+            with sub.Popen(cmd):
+                self.line(f"<info>Flashing {mcu}...</info>")
 
             self.line(f"<info>Flashing {mcu}...</info> <success>✓</success>")
             _ = self.ask("Please power cycle the device, then press `ENTER`")
             sleep(3)
             self.line("")
             self.line("")
-
 
     # -----
     # _get_targets
@@ -90,17 +97,18 @@ class FlashMCUCommand(Command):
         """
         try:
             assert self._target in mcuTargets
-        except AssertionError:
-            raise UnknownMCUError(self._target, mcuTargets)
+        except AssertionError as err:
+            raise UnknownMCUError(self._target, mcuTargets) from err
 
         if self._target == "all":
             self._targets = mcuTargets
         else:
-            self._targets = [self._target,]
+            self._targets = [
+                self._target,
+            ]
 
         if not self._device.hasHabs and "habs" in self._targets:
             self._targets.remove("habs")
-
 
     # -----
     # _build_firmware_file
@@ -110,20 +118,16 @@ class FlashMCUCommand(Command):
         Constructs the name of the firmware file from the device and
         microcontroller information.
         """
-        path = os.path.join(
-            firmwareDir,
-            fwVer,
-            deviceType
-        )
+        path = os.path.join(firmwareDir, fwVer, devType)
 
         if mcu == "mn":
             ext = "dfu"
-        elif mcu == "ex" or mcu == "re":
+        elif mcu in ("ex", "re"):
             ext = "cyacd"
         elif mcu == "habs":
             ext = "hex"
         else:
-            raise UnknownMCUError(mcu, supportedMCUs)
+            raise UnknownMCUError(mcu, mcuTargets)
 
         fwFile = f"{devType}_rigid-{hwVer}_{mcu}_firmware-{fwVer}.{ext}"
 
@@ -134,7 +138,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_habs(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, STMFlashLoader.exe)}",
+            f"{os.path.join(toolsDir, 'STMFlashLoader.exe')}",
             "-c",
             "--pn",
             f"{self._port}",
@@ -155,9 +159,9 @@ class FlashMCUCommand(Command):
             "--set",
             "--vals",
             "--User",
-            "0xF00F"
+            "0xF00F",
         ]
-        
+
         return cmd
 
     # -----
@@ -165,7 +169,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_ex(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, psocbootloaderhost.exe)}",
+            f"{os.path.join(toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._port}",
             f"{fwFile}",
         ]
@@ -177,7 +181,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_re(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, psocbootloaderhost.exe)}",
+            f"{os.path.join(toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._port}",
             f"{fwFile}",
         ]
@@ -189,7 +193,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_mn(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, DfuSeCommand.exe)}",
+            f"{os.path.join(toolsDir, 'DfuSeCommand.exe')}",
             "-c",
             "-d",
             "--fn",

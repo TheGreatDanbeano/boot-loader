@@ -1,4 +1,16 @@
+import glob
+import os
+import shutil
+import subprocess as sub
+import sys
+
 from cleo import Command
+
+from bootloader.exceptions.exceptions import DeviceNotFoundError
+from bootloader.utilities.config import baudRate
+from bootloader.utilities.config import toolsDir
+from bootloader.utilities.system import find_device
+from bootloader.utilities.system import set_tunnel_mode
 
 
 # ============================================
@@ -41,7 +53,7 @@ class FlashBtCommand(Command):
             sys.exit(1)
 
         try:
-            self._build_bt_image()
+            btImageFile = self._build_bt_image()
         except FileNotFoundError as err:
             msg = f"<error>Error: could not find file:</error>\n\t{err}"
             self.line(msg)
@@ -52,7 +64,7 @@ class FlashBtCommand(Command):
             sys.exit(1)
 
         try:
-            self._flash()
+            self._flash(btImageFile)
         except OSError as err:
             msg = f"<error>Error: flashing failed:</error>\n\t{err}"
             self.line(err)
@@ -80,15 +92,18 @@ class FlashBtCommand(Command):
 
         shutil.copyfile(gattTemplate, gattFile)
 
-        proc = sub.Popen(["python3", "bt121_gatt_broadcast_img.py", f"{self._address}"])
-        proc.wait()
+        cmd = ["python3", "bt121_gatt_broadcast_img.py", f"{self._address}"]
+        with sub.Popen(cmd) as proc:
+            self.line("Building bluetooth image...")
+
         if proc.returncode == 1:
             raise OSError("bt121_gatt_broadcast_img.py")
 
-        bgEXE = os.path.join("smart-ready-1.7.0-217", "bin", "bgbuild.exe")
+        bgExe = os.path.join("smart-ready-1.7.0-217", "bin", "bgbuild.exe")
         xmlFile = os.path.join("dephy_gatt_broadcast_bt121", "project.xml")
-        proc = sub.Popen([bgExe, xmlFile])
-        proc.wait()
+        with sub.Popen([bgExe, xmlFile]) as proc:
+            self.line("Running smart-ready...")
+
         if proc.returncode == 1:
             raise OSError("bgbuild.exe")
 
@@ -101,24 +116,29 @@ class FlashBtCommand(Command):
 
         btImageFile = f"dephy_gatt_broadcast_bt121_Exo-{self._address}.bin"
         shutil.move(os.path.join("dephy_gatt_broadcast_bt121", btImageFile), "output")
-        btImageFile = os.path.join(os.getcwd(), "bt121_image_tools", "output", btImageFile)
+        btImageFile = os.path.join(
+            os.getcwd(), "bt121_image_tools", "output", btImageFile
+        )
+
+        os.chdir(cwd)
 
         return btImageFile
 
     # -----
     # _flash
     # -----
-    def _flash(self) -> None:
-        set_tunnel_mode("BT121")
+    def _flash(self, btImageFile: str) -> None:
+        set_tunnel_mode(self._port, baudRate, "BT121", 20)
         cmd = [
             os.path.join(toolsDir, "stm32flash"),
             "-w",
             btImageFile,
             "-b",
             "115200",
-            self._device.port
+            self._device.port,
         ]
-        proc = sub.Popen(cmd)
-        proc.wait()
+        with sub.Popen(cmd) as proc:
+            self.line("Flashing...")
+
         if proc.returncode == 1:
             raise OSError(cmd)

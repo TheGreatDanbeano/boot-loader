@@ -1,4 +1,14 @@
+import os
+import subprocess as sub
+import sys
+
 from cleo import Command
+
+from bootloader.exceptions.exceptions import DeviceNotFoundError
+from bootloader.utilities.config import baudRate
+from bootloader.utilities.config import toolsDir
+from bootloader.utilities.system import find_device
+from bootloader.utilities.system import set_tunnel_mode
 
 
 # ============================================
@@ -36,19 +46,20 @@ class FlashXBeeCommand(Command):
             self.line(err)
             sys.exit(1)
 
-        set_tunnel_mode("XBee")
+        set_tunnel_mode(self._port, baudRate, "XBee", 20)
 
         cmd = [
             "python3",
             os.path.join(toolsDir, "xb24c.py"),
             self._device.port,
-            self.address,
-            self.buddyAddress,
-            "upgrade"
+            self._address,
+            self._buddyAddress,
+            "upgrade",
         ]
 
-        proc = sub.Popen(cmd)
-        proc.wait()
+        with sub.Popen(cmd) as proc:
+            self.line("Flashing...")
+
         if proc.returncode == 1:
             msg = "<error>Error: flashing xbee failed.</error>"
             self.line(msg)

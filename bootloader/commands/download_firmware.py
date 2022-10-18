@@ -1,4 +1,14 @@
+import os
+import sys
+
 from cleo import Command
+from rsyncs3 import RsyncS3
+
+from bootloader.exceptions.exceptions import S3DownloadError
+from bootloader.exceptions.exceptions import UnknownMCUError
+from bootloader.utilities.config import firmwareBucket
+from bootloader.utilities.config import firmwareDir
+from bootloader.utilities.config import mcuTargets
 
 
 # ============================================
@@ -53,7 +63,9 @@ class DownloadFirmwareCommand(Command):
 
             self.overwrite("\n\tDownloading... <success>✓</success>\n")
 
-        self.overwrite(f"Searching for firmware: {self._fwFile}...<success>✓</success>\n")
+        self.overwrite(
+            f"Searching for firmware: {self._fwFile}...<success>✓</success>\n"
+        )
 
     # -----
     # _build_firmware_file
@@ -65,12 +77,12 @@ class DownloadFirmwareCommand(Command):
         """
         if self._mcu == "mn":
             ext = "dfu"
-        elif self._mcu == "ex" or self._mcu == "re":
+        elif self._mcu in ("ex", "re"):
             ext = "cyacd"
         elif self._mcu == "habs":
             ext = "hex"
         else:
-            raise UnknownMCUError(self._mcu, supportedMCUs)
+            raise UnknownMCUError(self._mcu, mcuTargets)
 
         self._fwFile = f"{self._deviceType}_rigid-{self._hwVer}_{self._mcu}_"
         self._fwFile += f"firmware-{self._fwVer}.{ext}"
@@ -83,12 +95,8 @@ class DownloadFirmwareCommand(Command):
         Checks to see if the constructed firmware file is already in the
         cache.
         """
-        path = os.path.join(
-            firmwareDir,
-            self._fwVer,
-            self._deviceType
-        )
-        return os.path.exists(os.path.join(path, self._fwFile)):
+        path = os.path.join(firmwareDir, self._fwVer, self._deviceType)
+        return os.path.exists(os.path.join(path, self._fwFile))
 
     # -----
     # _download_firmware
@@ -97,11 +105,7 @@ class DownloadFirmwareCommand(Command):
         """
         Downloads the desired firmware from S3.
         """
-        dest = os.path.join(
-            firmwareDir,
-            self._fwVer,
-            self._deviceType
-        )
+        dest = os.path.join(firmwareDir, self._fwVer, self._deviceType)
 
         # Not using os.path.join b/c I don't think AWS
         # supports Windows separators

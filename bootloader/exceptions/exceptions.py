@@ -1,3 +1,6 @@
+from typing import List
+
+
 # ============================================
 #                UnknownMCUError
 # ============================================
@@ -6,6 +9,7 @@ class UnknownMCUError(Exception):
     Raised when trying to flash an unexpected, unknown, or unsupported
     microcontroller.
     """
+
     # -----
     # constructor
     # -----
@@ -32,6 +36,7 @@ class S3DownloadError(Exception):
     """
     Raised when a file fails to download from S3.
     """
+
     # -----
     # constructor
     # -----
@@ -58,6 +63,7 @@ class UnsupportedOSError(Exception):
     """
     Raised when running on an unsupported operating system.
     """
+
     # -----
     # constructor
     # -----
@@ -85,6 +91,7 @@ class AccessKeyError(Exception):
     Raised when either the public or private AWS S3 access key for the
     firmware isn't found.
     """
+
     # -----
     # constructor
     # -----
@@ -113,6 +120,7 @@ class DeviceNotFoundError(Exception):
     """
     Raised if we are unable to connect to a valid Dephy device.
     """
+
     # -----
     # constructor
     # -----

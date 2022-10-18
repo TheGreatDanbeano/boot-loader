@@ -25,6 +25,7 @@ class InitCommand(Command):
 
     init
     """
+
     # -----
     # handle
     # -----
@@ -78,12 +79,12 @@ class InitCommand(Command):
         currentOS = platform.system().lower()
 
         try:
-            assert currentOS in supportedOS 
-        except AssertionError:
-            raise UnsupportedOSError(currentOS, supportedOS)
+            assert currentOS in supportedOS
+        except AssertionError as err:
+            raise UnsupportedOSError(currentOS, supportedOS) from err
 
         self.overwrite("Checking OS... <success>✓</success>\n")
-    
+
     # -----
     # _setup_cache
     # -----
@@ -154,13 +155,13 @@ class InitCommand(Command):
         self.write("Checking for access keys...")
 
         try:
-            publicKey = os.environ["DEPHY_PUBLIC_KEY"]
-        except KeyError:
-            raise AccessKeyError("public")
+            _ = os.environ["DEPHY_PUBLIC_KEY"]
+        except KeyError as err:
+            raise AccessKeyError("public") from err
 
         try:
-            secretKey = os.environ["DEPHY_SECRET_KEY"]
-        except KeyError:
-            raise AccessKeyError("secret")
+            _ = os.environ["DEPHY_SECRET_KEY"]
+        except KeyError as err:
+            raise AccessKeyError("secret") from err
 
         self.overwrite("<info>Checking for access keys</info> <success>✓</success>\n")

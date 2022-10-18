@@ -13,6 +13,7 @@ class ApplicationConfig(BaseApplicationConfig):
     """
     Controls the configuration and styling of the CLI object.
     """
+
     # -----
     # configure
     # -----
@@ -31,6 +32,7 @@ class BootloaderApplication(Application):
     """
     The CLI object.
     """
+
     # -----
     # constructor
     # -----
@@ -43,16 +45,15 @@ class BootloaderApplication(Application):
     # _get_commands
     # -----
     def _get_commands(self) -> List[Command]:
-    """
-    Helper method for telling the CLI about the commands available to
-    it.
+        """
+        Helper method for telling the CLI about the commands available to
+        it.
 
-    Returns
-    -------
-    commandList : List[Command]
-        A list of commands available to the CLI.
-    """
-    commandList = [
-    ]
+        Returns
+        -------
+        commandList : List[Command]
+            A list of commands available to the CLI.
+        """
+        commandList = []
 
-    return commandList
+        return commandList
