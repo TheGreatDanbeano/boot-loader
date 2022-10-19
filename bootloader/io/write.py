@@ -15,14 +15,6 @@ def display_logo(print_function: Callable[[str], None]) -> None:
     ----------
     print_function : Callable[[str], None]
         The function to use for displaying the logo.
-
-    Raises
-    ------
-    None
-
-    Returns
-    -------
-    None
     """
     try:
         print_function(dephyLogo)

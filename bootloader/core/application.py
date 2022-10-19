@@ -5,6 +5,12 @@ from cleo import Command
 from cleo.config import ApplicationConfig as BaseApplicationConfig
 from clikit.api.formatter import Style
 
+from bootloader.commands.download_firmware import DownloadFirmwareCommand
+from bootloader.commands.flash_bt import FlashBtCommand
+from bootloader.commands.flash_mcu import FlashMCUCommand
+from bootloader.commands.flash_xbee import FlashXbeeCommand
+from bootloader.commands.init import InitCommand
+
 
 # ============================================
 #              ApplicationConfig
@@ -54,6 +60,12 @@ class BootloaderApplication(Application):
         commandList : List[Command]
             A list of commands available to the CLI.
         """
-        commandList = []
+        commandList = [
+            DownloadFirmwareCommand,
+            FlashBtCommand,
+            FlashMCUCommand,
+            FlashXbeeCommand,
+            InitCommand,
+        ]
 
         return commandList

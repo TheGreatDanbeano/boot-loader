@@ -79,9 +79,9 @@ class FlashMCUCommand(Command):
                 cmd = self._flash_mn(fwFile)
 
             with sub.Popen(cmd):
-                self.line(f"<info>Flashing {mcu}...</info>")
+                self.write(f"<info>Flashing {mcu}...</info>")
 
-            self.line(f"<info>Flashing {mcu}...</info> <success>✓</success>")
+            self.overwrite(f"<info>Flashing {mcu}...</info> <success>✓</success>\n")
             _ = self.ask("Please power cycle the device, then press `ENTER`")
             sleep(3)
             self.line("")

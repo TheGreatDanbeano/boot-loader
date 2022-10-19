@@ -1,4 +1,5 @@
 from time import sleep
+from typing import Union
 
 from serial.tools.list_ports import comports
 from flexsea.device import Device
@@ -10,11 +11,28 @@ from bootloader.exceptions.exceptions import DeviceNotFoundError
 # ============================================
 #                 find_device
 # ============================================
-def find_device(port: str) -> Device:
+def find_device(port: Union[str, None]) -> Device:
     """
     Tries to establish a connection to the Dephy device given by
     the user-supplied port. If no port is supplied, then we loop
     over all available serial ports to try and find a valid device.
+
+    Parameters
+    ----------
+    port : Union[str, None]
+        The name of the port to connect to, e.g., '/dev/ttyACM0'. If
+        no port is given, we loop over all available serial ports.
+
+    Raises
+    ------
+    DeviceNotFoundError
+        If no valid Dephy device can be found.
+
+    Returns
+    -------
+    device : Device
+        An instance of the `flexsea` `Device` class that provides an
+        interface for communicating with the device.
     """
     device = None
 
@@ -47,10 +65,40 @@ def find_device(port: str) -> Device:
 # ============================================
 def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool:
     """
-    Activate bootloader in target and wait until it's active.
+    Activate the bootloader in `target` and wait until either it's active
+    or `timeout` seconds have passed.
+
+    Parameters
+    ----------
+    port : str
+        The name of the port to connect to, e.g., '/dev/ttyACM0'.
+
+    baudRate : int
+        The baud rate used for communication with the device.
+
+    target : str
+        The name of the target to set (abbreviated).
+
+    timeout : int
+        The number of seconds to wait for confirmation before failing.
+
+    Raises
+    ------
+    IOError
+        If the device cannot be opened.
+
+    OSError
+        If cannot load the pre-compiled C libraries needed for communication.
+
+    RuntimeError
+        If the application type isn't recognized.
+
+    Returns
+    -------
+    result : bool
+        If `True`, the bootloader was set successfully. If `False` then
+        something went wrong.
     """
-    # 6 is least verbose, 0 is most verbose
-    debug_logging_level = 0
     result = False
 
     try:
@@ -59,32 +107,30 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
         raise OSError("Failed to load pre-compiled flexsea C libraries.") from err
 
     try:
-        device.open(log_level=debug_logging_level)
+        device.open(log_level=0)
     except IOError as err:
-        raise RuntimeError(f"Failed to open device at {port}") from err
+        raise IOError(f"Failed to open device at {port}") from err
 
-    app_type = device.app_type
+    if device.app_type.value not in fxe.APP_NAMES:
+        raise RuntimeError(f"Unknown application type: {device.app_type.value}")
 
-    try:
-        print(f"Your device is an {fxe.APP_NAMES[app_type.value]}", flush=True)
-    except KeyError as err:
-        raise RuntimeError(f"Unknown application type: {app_type.value}") from err
-
-    wait_step = 1
+    wait = 1
     state = fxe.FX_FAILURE.value
+
     while timeout > 0 and state != fxe.FX_SUCCESS.value:
         if timeout % 5 == 0:
             try:
                 device.activate_bootloader(target)
             except (IOError, ValueError):
                 pass
-        sleep(wait_step)
-        timeout -= wait_step
+        sleep(wait)
+        timeout -= wait
+
         try:
             state = device.is_bootloader_activated()
         except ValueError as err:
-            raise RuntimeError from err
-        except IOError as err:
+            raise ValueError(f"Failed to activate bootloader for `{target}`") from err
+        except IOError:
             pass
 
     if state == fxe.FX_SUCCESS.value:

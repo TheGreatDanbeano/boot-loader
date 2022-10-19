@@ -25,11 +25,11 @@ class DownloadFirmwareCommand(Command):
         {hwVer : The device's rigid (hardware) version, e.g., 4.1}
     """
 
-    _fwVer = None
     _deviceType = None
-    _mcu = None
-    _hwVer = None
     _fwFile = None
+    _fwVer = None
+    _hwVer = None
+    _mcu = None
 
     # -----
     # handle
