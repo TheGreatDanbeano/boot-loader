@@ -6,14 +6,9 @@ from typing import List
 
 from cleo import Command
 
-from bootloader.exceptions.exceptions import DeviceNotFoundError
-from bootloader.exceptions.exceptions import UnknownMCUError
-from bootloader.utilities.config import baudRate
-from bootloader.utilities.config import firmwareDir
-from bootloader.utilities.config import mcuTargets
-from bootloader.utilities.config import toolsDir
-from bootloader.utilities.system import find_device
-from bootloader.utilities.system import set_tunnel_mode
+from bootloader.exceptions import exceptions
+from bootloader.utilities import config as cfg
+from bootloader.utilities import system
 
 
 # ============================================
@@ -49,14 +44,14 @@ class FlashMCUCommand(Command):
         self.call("init")
 
         try:
-            self._device = find_device(self._port)
-        except DeviceNotFoundError as err:
+            self._device = system.find_device(self._port)
+        except exceptions.DeviceNotFoundError as err:
             self.line(err)
             sys.exit(1)
 
         try:
             self._get_targets()
-        except UnknownMCUError as err:
+        except exceptions.UnknownMCUError as err:
             self.line(err)
             sys.exit(1)
 
@@ -67,7 +62,7 @@ class FlashMCUCommand(Command):
         for mcu in self._targets:
             self.call("download-firmware", f"{_fwv} {_devType} {mcu} {_hwVer}")
             fwFile = self._build_firmware_file(_fwv, _devType, _hwVer, mcu)
-            set_tunnel_mode(self._port, baudRate, mcu, 20)
+            system.set_tunnel_mode(self._port, cfg.baudRate, mcu, 20)
 
             if mcu == "habs":
                 cmd = self._flash_habs(fwFile)
@@ -96,12 +91,12 @@ class FlashMCUCommand(Command):
         the `all` case more easily.
         """
         try:
-            assert self._target in mcuTargets
+            assert self._target in cfg.mcuTargets
         except AssertionError as err:
-            raise UnknownMCUError(self._target, mcuTargets) from err
+            raise exceptions.UnknownMCUError(self._target, cfg.mcuTargets) from err
 
         if self._target == "all":
-            self._targets = mcuTargets
+            self._targets = cfg.mcuTargets
         else:
             self._targets = [
                 self._target,
@@ -118,7 +113,7 @@ class FlashMCUCommand(Command):
         Constructs the name of the firmware file from the device and
         microcontroller information.
         """
-        path = os.path.join(firmwareDir, fwVer, devType)
+        path = os.path.join(cfg.firmwareDir, fwVer, devType)
 
         if mcu == "mn":
             ext = "dfu"
@@ -127,7 +122,7 @@ class FlashMCUCommand(Command):
         elif mcu == "habs":
             ext = "hex"
         else:
-            raise UnknownMCUError(mcu, mcuTargets)
+            raise exceptions.UnknownMCUError(mcu, cfg.mcuTargets)
 
         fwFile = f"{devType}_rigid-{hwVer}_{mcu}_firmware-{fwVer}.{ext}"
 
@@ -138,7 +133,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_habs(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, 'STMFlashLoader.exe')}",
+            f"{os.path.join(cfg.toolsDir, 'STMFlashLoader.exe')}",
             "-c",
             "--pn",
             f"{self._port}",
@@ -169,7 +164,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_ex(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, 'psocbootloaderhost.exe')}",
+            f"{os.path.join(cfg.toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._port}",
             f"{fwFile}",
         ]
@@ -181,7 +176,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_re(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, 'psocbootloaderhost.exe')}",
+            f"{os.path.join(cfg.toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._port}",
             f"{fwFile}",
         ]
@@ -193,7 +188,7 @@ class FlashMCUCommand(Command):
     # -----
     def _flash_mn(self, fwFile) -> List[str]:
         cmd = [
-            f"{os.path.join(toolsDir, 'DfuSeCommand.exe')}",
+            f"{os.path.join(cfg.toolsDir, 'DfuSeCommand.exe')}",
             "-c",
             "-d",
             "--fn",

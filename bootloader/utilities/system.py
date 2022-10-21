@@ -1,4 +1,6 @@
+import sys
 from time import sleep
+from typing import Callable
 from typing import Union
 
 from serial.tools.list_ports import comports
@@ -6,6 +8,26 @@ from flexsea.device import Device
 import flexsea.fx_enums as fxe
 
 from bootloader.exceptions.exceptions import DeviceNotFoundError
+
+
+# ============================================
+#                 find_device
+# ============================================
+def endrun(err: Exception, print_function: Callable) -> None:
+    """
+    Uses the given print function to display the provided error
+    message.
+
+    Parameters
+    ----------
+    err : Exception
+        The exception to print.
+
+    print_function : Callable
+        The function to use to display the error.
+    """
+    print_function(err)
+    sys.exit(1)
 
 
 # ============================================

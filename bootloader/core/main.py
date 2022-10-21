@@ -2,11 +2,13 @@ from .application import BootloaderApplication
 
 
 # ============================================
-#                    main
+#                     main
 # ============================================
 def main() -> None:
     """
-    Entry point. Creates an instance of the command-line interface
-    (CLI) object and runs it.
+    Entry point.
+
+    Creates an instance of the command-line interface (CLI) object and
+    runs it.
     """
     BootloaderApplication().run()

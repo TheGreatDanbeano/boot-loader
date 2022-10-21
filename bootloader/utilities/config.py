@@ -21,8 +21,19 @@ firmwareDir = os.path.join(cacheDir, "firmware")
 # ============================================
 
 # Public bucket where bootloading tools are stored
-toolsBucket = "https://bootloader-tools-dephy-com.s3.us-east-2.amazonaws.com/"
+toolsBucket = "https://dephy-bootloader-tools.s3.us-east-2.amazonaws.com/"
+
+# Private bucket where the firmware is stored
 firmwareBucket = "https://dephy-firmware.s3.us-east-2.amazonaws.com/"
+
+# Credentials profile name
+dephyProfile = "dephy"
+
+# Dummy file to check AWS key authenticity
+connectionFile = "connection_file.txt"
+
+# AWS credentials file
+credentialsFile = os.path.join(os.environ["HOME"], ".aws", "credentials")
 
 
 # ============================================
@@ -30,10 +41,11 @@ firmwareBucket = "https://dephy-firmware.s3.us-east-2.amazonaws.com/"
 # ============================================
 bootloaderTools = [
     "psocbootloaderhost.exe",
-    "bt121_image_tools-master.zip",
-    "DfuSe_Demo_V3.0.6_Setup.exe",
-    "flash_loader_demo_v2.8.0.exe",
+    "bt121_image_tools",
+    "DfuSeCommand.exe",
+    "STMFlashLoader.exe",
     "stm32flash.exe",
+    "XB24C",
 ]
 
 

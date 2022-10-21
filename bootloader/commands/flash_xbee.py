@@ -5,16 +5,14 @@ import sys
 from cleo import Command
 
 from bootloader.exceptions.exceptions import DeviceNotFoundError
-from bootloader.utilities.config import baudRate
-from bootloader.utilities.config import toolsDir
-from bootloader.utilities.system import find_device
-from bootloader.utilities.system import set_tunnel_mode
+from bootloader.utilities import config as cfg
+from bootloader.utilities import system
 
 
 # ============================================
 #              FlashXBeeCommand
 # ============================================
-class FlashXBeeCommand(Command):
+class FlashXbeeCommand(Command):
     """
     Flashes the xbee radio on a Dephy device.
 
@@ -41,16 +39,16 @@ class FlashXBeeCommand(Command):
         self._port = self.option("port") if self.option("port") else ""
 
         try:
-            self._device = find_device(self._port)
+            self._device = system.find_device(self._port)
         except DeviceNotFoundError as err:
             self.line(err)
             sys.exit(1)
 
-        set_tunnel_mode(self._port, baudRate, "XBee", 20)
+        system.set_tunnel_mode(self._port, cfg.baudRate, "XBee", 20)
 
         cmd = [
             "python3",
-            os.path.join(toolsDir, "xb24c.py"),
+            os.path.join(cfg.toolsDir, "xb24c.py"),
             self._device.port,
             self._address,
             self._buddyAddress,

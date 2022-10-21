@@ -1,14 +1,11 @@
 import os
-import sys
 
+import boto3
 from cleo import Command
-from rsyncs3 import RsyncS3
 
-from bootloader.exceptions.exceptions import S3DownloadError
-from bootloader.exceptions.exceptions import UnknownMCUError
-from bootloader.utilities.config import firmwareBucket
-from bootloader.utilities.config import firmwareDir
-from bootloader.utilities.config import mcuTargets
+from bootloader.exceptions import exceptions
+from bootloader.utilities import config as cfg
+from bootloader.utilities.system import endrun
 
 
 # ============================================
@@ -45,9 +42,8 @@ class DownloadFirmwareCommand(Command):
 
         try:
             self._build_firmware_file()
-        except UnknownMCUError as err:
-            self.line(err)
-            sys.exit(1)
+        except exceptions.UnknownMCUError as err:
+            endrun(err, self.line)
 
         self.write(f"Searching for firmware: {self._fwFile}...")
 
@@ -57,9 +53,8 @@ class DownloadFirmwareCommand(Command):
 
             try:
                 self._download_firmware()
-            except S3DownloadError as err:
-                self.line(err)
-                sys.exit(1)
+            except exceptions.S3DownloadError as err:
+                endrun(err, self.line)
 
             self.overwrite("\n\tDownloading... <success>✓</success>\n")
 
@@ -74,6 +69,11 @@ class DownloadFirmwareCommand(Command):
         """
         Constructs the name of the firmware file from the device and
         microcontroller information.
+
+        Raises
+        ------
+        UnknownMCUError
+            If we encounter an unsupported/unrecognized microcontroller.
         """
         if self._mcu == "mn":
             ext = "dfu"
@@ -82,7 +82,7 @@ class DownloadFirmwareCommand(Command):
         elif self._mcu == "habs":
             ext = "hex"
         else:
-            raise UnknownMCUError(self._mcu, mcuTargets)
+            raise exceptions.UnknownMCUError(self._mcu, cfg.mcuTargets)
 
         self._fwFile = f"{self._deviceType}_rigid-{self._hwVer}_{self._mcu}_"
         self._fwFile += f"firmware-{self._fwVer}.{ext}"
@@ -94,8 +94,14 @@ class DownloadFirmwareCommand(Command):
         """
         Checks to see if the constructed firmware file is already in the
         cache.
+
+        Returns
+        -------
+        bool
+            `True` if the desired firmware is on disk and `False` if it
+            isn't.
         """
-        path = os.path.join(firmwareDir, self._fwVer, self._deviceType)
+        path = os.path.join(cfg.firmwareDir, self._fwVer, self._deviceType)
         return os.path.exists(os.path.join(path, self._fwFile))
 
     # -----
@@ -104,19 +110,27 @@ class DownloadFirmwareCommand(Command):
     def _download_firmware(self) -> None:
         """
         Downloads the desired firmware from S3.
+
+        Raises
+        ------
+        S3DownloadError
+            If we fail to download a file from S3.
         """
-        dest = os.path.join(firmwareDir, self._fwVer, self._deviceType)
+        dest = os.path.join(cfg.firmwareDir, self._fwVer, self._deviceType)
 
         # Not using os.path.join b/c I don't think AWS
         # supports Windows separators
         fwObj = f"{self._fwVer}/{self._deviceType}/{self._fwFile}"
 
-        rs = RsyncS3(firmwareBucket, f"{fwObj}", dest)
-        rs.sync()
+        session = boto3.Session(profile_name=cfg.dephyProfile)
+        client = session.client("s3")
+        client.download_file(
+            cfg.firmwareBucket, fwObj, os.path.join(dest, self._fwFile)
+        )
 
         # As far as I can tell, boto3 doesn't raise an
         # exception if the file you're trying to download
         # either fails or doesn't exist. Here we check to
         # see if the file exists as a work-around
         if not os.path.exists(os.path.join(dest, self._fwFile)):
-            raise S3DownloadError(firmwareBucket, self._fwFile, dest)
+            raise exceptions.S3DownloadError(cfg.firmwareBucket, self._fwFile, dest)

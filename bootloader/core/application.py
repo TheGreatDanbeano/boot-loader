@@ -24,7 +24,11 @@ class ApplicationConfig(BaseApplicationConfig):
     # configure
     # -----
     def configure(self) -> None:
+        """
+        Sets the color of various message types.
+        """
         super().configure()
+
         self.add_style(Style("info").fg("cyan"))
         self.add_style(Style("error").fg("red").bold())
         self.add_style(Style("warning").fg("yellow").bold())
@@ -44,6 +48,7 @@ class BootloaderApplication(Application):
     # -----
     def __init__(self) -> None:
         super().__init__(config=ApplicationConfig())
+
         for command in self._get_commands():
             self.add(command())
 

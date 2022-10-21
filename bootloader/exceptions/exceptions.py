@@ -11,23 +11,14 @@ class AccessKeyError(Exception):
     """
 
     # -----
-    # constructor
-    # -----
-    def __init__(self, key) -> None:
-        self._key = key
-
-    # -----
     # __str__
     # -----
     def __str__(self) -> str:
-        msg = f"<error>Error: `{self._key}` key not found!</error>"
-        msg += "\n\tPlease save your key in the following environment variable:"
-        if self._key == "public":
-            msg += "\n\t\t<info>DEPHY_PUBLIC_KEY</info>"
-        elif self._key == "secret":
-            msg += "\n\t\t<info>DEPHY_SECRET_KEY</info>"
-        else:
-            raise ValueError("`key` must be either `public` or `secret`.")
+        msg = "<error>Error: AWS access keys not found!</error>"
+        msg += "\n\tPlease save your keys in <info>`~/.aws/credentials`</info> as:"
+        msg += "\n\n\t\t<info>[dephy]\n\t\taws_access_key_id=XXXX"
+        msg += "\n\t\taws_secret_access_key=YYYY\n\n</info>"
+        msg += "\nYou should have received access to these keys with your purchase.\n"
         return msg
 
 
@@ -52,6 +43,139 @@ class DeviceNotFoundError(Exception):
         msg = "<error>Error: could not find a device.</error>"
         if self._port:
             msg += f"\n\tPort given: <info>{self._port}</info>"
+        return msg
+
+
+# ============================================
+#              FlashFailedError
+# ============================================
+class FlashFailedError(Exception):
+    """
+    Raised when the flashing process fails.
+    """
+
+    # -----
+    # constructor
+    # -----
+    def __init__(self, cmd: List) -> None:
+        self._cmd = cmd
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: flashing failed:</error>"
+        for cmdPiece in self._cmd:
+            msg += f"\n\t{cmdPiece}"
+        return msg
+
+
+# ============================================
+#               InvalidKeyError
+# ============================================
+class InvalidKeyError(Exception):
+    """
+    Raised if one (or both) of the AWS access key is (are) incorrect.
+    """
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: invalid keys.</error>"
+        return msg
+
+
+# ============================================
+#               MissingKeyError
+# ============================================
+class MissingKeyError(Exception):
+    """
+    Raised if one (or both) of the required AWS keys is (are) missing.
+    """
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: Missing keys.</error>\n\t"
+        msg += "Need both `aws_access_key_id` and `aws_secret_access_key` in\n\t"
+        msg += "the `[dephy]` profile.\n\t"
+        msg += "See: <info>https://tinyurl.com/4sc3rwut</info>"
+        return msg
+
+
+# ============================================
+#                NetworkError
+# ============================================
+class NetworkError(Exception):
+    """
+    Raised if we cannot connect to AWS.
+    """
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: could not connect to AWS.</error>\n\t"
+        msg += "Check your internet connection."
+        return msg
+
+
+# ============================================
+#             NoBluetoothImageError
+# ============================================
+class NoBluetoothImageError(Exception):
+    """
+    Raised when we cannot find the required bluetooth file.
+    """
+
+    # -----
+    # constructor
+    # -----
+    def __init__(self, imgFile: str) -> None:
+        self._imgFile = imgFile
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = f"<error>Error: could not find file:</error>\n\t{self._imgFile}"
+        return msg
+
+
+# ============================================
+#              NoCredentialsError
+# ============================================
+class NoCredentialsError(Exception):
+    """
+    Raised if `boto3` cannot find any credentials.
+    """
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: `~/.aws/credentials` file not found.</error>"
+        return msg
+
+
+# ============================================
+#               NoProfileError
+# ============================================
+class NoProfileError(Exception):
+    """
+    Raised if the `[dephy]` profile isn't present in the AWS
+    credentials file.
+    """
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: `dephy` profile not found.</error>\n\t"
+        msg += "Please save the access keys under `[dephy]` in `~/.aws/credentials`"
+        msg += "\n\tSee: <info>https://tinyurl.com/4sc3rwut</info>"
         return msg
 
 
@@ -135,5 +259,3 @@ class UnsupportedOSError(Exception):
         for operatingSystem in self._supportedOS:
             msg += f"\n\t\t* <info>{operatingSystem}</info>"
         return msg
-
-

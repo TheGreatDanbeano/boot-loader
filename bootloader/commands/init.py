@@ -1,19 +1,17 @@
 import os
 import platform
 import sys
+import tempfile
 
+import boto3
+import botocore.exceptions as bce
 from cleo import Command
-from rsyncs3 import RsyncS3
 
-from bootloader.exceptions.exceptions import AccessKeyError
-from bootloader.exceptions.exceptions import S3DownloadError
-from bootloader.exceptions.exceptions import UnsupportedOSError
-from bootloader.io.write import display_logo
-from bootloader.utilities.config import bootloaderTools
-from bootloader.utilities.config import firmwareDir
-from bootloader.utilities.config import supportedOS
-from bootloader.utilities.config import toolsBucket
-from bootloader.utilities.config import toolsDir
+from bootloader.exceptions import exceptions
+from bootloader.utilities import config as cfg
+from bootloader.utilities.logo import dephyLogo
+from bootloader.utilities.logo import dephyLogoPlain
+from bootloader.utilities.system import endrun
 
 
 # ============================================
@@ -31,35 +29,41 @@ class InitCommand(Command):
     # -----
     def handle(self) -> None:
         """
-        Entry point for the command. Steps:
+        Entry point for the command.
         """
-        display_logo(self.line)
+        try:
+            self.line(dephyLogo)
+        except UnicodeEncodeError:
+            self.line(dephyLogoPlain)
 
         self.line("Welcome to the Dephy bootloader!")
 
-        msg = "<warning>Please make sure the battery is removed!</warning>"
-        if not self.confirm(msg):
+        msg = "<warning>Please make sure the battery is removed![y|n]</warning>"
+        if not self.confirm(msg, False):
             sys.exit(1)
 
         try:
             self._check_os()
-        except UnsupportedOSError as err:
-            self.line(err)
-            sys.exit(1)
+        except exceptions.UnsupportedOSError as err:
+            endrun(err, self.line)
 
         self._setup_cache()
 
         try:
             self._check_tools()
-        except S3DownloadError as err:
-            self.line(err)
-            sys.exit(1)
+        except (exceptions.NetworkError, exceptions.S3DownloadError) as err:
+            endrun(err, self.line)
 
         try:
             self._check_keys()
-        except AccessKeyError as err:
-            self.line(err)
-            sys.exit(1)
+        except (
+            exceptions.NoCredentialsError,
+            exceptions.NoProfileError,
+            exceptions.MissingKeyError,
+            exceptions.InvalidKeyError,
+            exceptions.NetworkError,
+        ) as err:
+            endrun(err, self.line)
 
     # -----
     # _check_os
@@ -79,9 +83,9 @@ class InitCommand(Command):
         currentOS = platform.system().lower()
 
         try:
-            assert currentOS in supportedOS
+            assert currentOS in cfg.supportedOS
         except AssertionError as err:
-            raise UnsupportedOSError(currentOS, supportedOS) from err
+            raise exceptions.UnsupportedOSError(currentOS, cfg.supportedOS) from err
 
         self.overwrite("Checking OS... <success>✓</success>\n")
 
@@ -95,8 +99,8 @@ class InitCommand(Command):
         """
         self.write("Setting up cache...")
 
-        os.makedirs(firmwareDir, exist_ok=True)
-        os.makedirs(toolsDir, exist_ok=True)
+        os.makedirs(cfg.firmwareDir, exist_ok=True)
+        os.makedirs(cfg.toolsDir, exist_ok=True)
 
         self.overwrite("Setting up cache... <success>✓</success>\n")
 
@@ -112,25 +116,32 @@ class InitCommand(Command):
 
         Raises
         ------
+        NetworkError
+            If we cannot connect to AWS.
+
         S3DownloadError
             If a tool fails to download.
         """
-        for tool in bootloaderTools:
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket(cfg.toolsBucket)
+
+        for tool in cfg.bootloaderTools:
             self.write(f"Searching for: <info>{tool}</info>...")
 
-            if not os.path.exists(os.path.join(toolsDir, tool)):
+            if not os.path.exists(os.path.join(cfg.toolsDir, tool)):
                 self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")
 
                 self.write("\tDownloading...")
 
-                with RsyncS3(toolsBucket, tool, toolsDir) as rs:
-                    rs.sync()
+                try:
+                    bucket.download_file(tool, os.path.join(cfg.toolsDir, tool))
+                except bce.EndpointConnectionError as err:
+                    raise exceptions.NetworkError from err
 
-                # rsyncs3 does not currently raise an exception if the
-                # file doesn't exist, the bucket doesn't exist, or if
-                # the download fails
-                if not os.path.exists(os.path.join(toolsDir, tool)):
-                    raise S3DownloadError(toolsBucket, tool, toolsDir)
+                if not os.path.exists(os.path.join(cfg.toolsDir, tool)):
+                    raise exceptions.S3DownloadError(
+                        cfg.toolsBucket, tool, cfg.toolsDir
+                    )
 
                 self.overwrite("\tDownloading... <success>✓</success>\n")
 
@@ -149,19 +160,47 @@ class InitCommand(Command):
 
         Raises
         ------
-        AccessKeyError
-            If either the public or secret key is not found.
+        InvalidKeyError
+            If one or both of the keys are invalid.
+
+        MissingKeyError
+            If one or both of the required keys are missing.
+
+        NetworkError
+            If we cannot connect to AWS.
+
+        NoCredentialsError
+            If the `~/.aws/credentials` file doesn't exist.
+
+        NoProfileError
+            If the `dephy` profile doesn't exist in the AWS
+            credentials file.
         """
         self.write("Checking for access keys...")
 
-        try:
-            _ = os.environ["DEPHY_PUBLIC_KEY"]
-        except KeyError as err:
-            raise AccessKeyError("public") from err
+        if not os.path.exists(cfg.credentialsFile):
+            raise exceptions.NoCredentialsError
 
         try:
-            _ = os.environ["DEPHY_SECRET_KEY"]
-        except KeyError as err:
-            raise AccessKeyError("secret") from err
+            session = boto3.Session(profile_name=cfg.dephyProfile)
+        except bce.ProfileNotFound as err:
+            raise exceptions.NoProfileError from err
+
+        try:
+            client = session.client("s3")
+        except bce.PartialCredentialsError as err:
+            raise exceptions.MissingKeyError from err
+
+        # If a key is invalid, we won't know until we try to download
+        # something, and it's easier to check that now
+        with tempfile.TemporaryFile() as fd:
+            try:
+                client.download_fileobj(cfg.firmwareBucket, cfg.connectionFile, fd)
+            except bce.ClientError as err:
+                raise exceptions.InvalidKeyError from err
+            except bce.EndpointConnectionError as err:
+                raise exceptions.NetworkError from err
+            finally:
+                fd.close()
 
         self.overwrite("<info>Checking for access keys</info> <success>✓</success>\n")

@@ -7,4 +7,4 @@ dephyLogo = """
 """
 
 
-dephyLogoPlainTxt = "\tDephy\n\tBeyond Nature (TM)"
+dephyLogoPlain = "\tDephy\n\tBeyond Nature (TM)"

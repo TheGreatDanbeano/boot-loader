@@ -2,15 +2,12 @@ import glob
 import os
 import shutil
 import subprocess as sub
-import sys
 
 from cleo import Command
 
-from bootloader.exceptions.exceptions import DeviceNotFoundError
-from bootloader.utilities.config import baudRate
-from bootloader.utilities.config import toolsDir
-from bootloader.utilities.system import find_device
-from bootloader.utilities.system import set_tunnel_mode
+from bootloader.exceptions import exceptions
+from bootloader.utilities import config as cfg
+from bootloader.utilities import system
 
 
 # ============================================
@@ -47,28 +44,19 @@ class FlashBtCommand(Command):
         self.call("init")
 
         try:
-            self._device = find_device(self._port)
-        except DeviceNotFoundError as err:
-            self.line(err)
-            sys.exit(1)
+            self._device = system.find_device(self._port)
+        except exceptions.DeviceNotFoundError as err:
+            system.endrun(err, self.line)
 
         try:
             btImageFile = self._build_bt_image()
-        except FileNotFoundError as err:
-            msg = f"<error>Error: could not find file:</error>\n\t{err}"
-            self.line(msg)
-            sys.exit(1)
-        except OSError as err:
-            msg = f"<error>Error: command failed:</error>\n\t{err}"
-            self.line(msg)
-            sys.exit(1)
+        except (exceptions.NoBluetoothImageError, exceptions.FlashFailedError) as err:
+            system.endrun(err, self.line)
 
         try:
             self._flash(btImageFile)
-        except OSError as err:
-            msg = f"<error>Error: flashing failed:</error>\n\t{err}"
-            self.line(err)
-            sys.exit(1)
+        except exceptions.FlashFailedError as err:
+            system.endrun(err, self.line)
 
     # -----
     # _build_bt_image
@@ -77,18 +65,26 @@ class FlashBtCommand(Command):
         """
         Uses the bluetooth tools repo (downloaded as a part of `init`)
         to create a bluetooth image file with the correct address.
+
+        Raises
+        ------
+        NoBluetoothImageError
+            If the required gatt file isn't found.
+
+        FlashFailedError
+            If a subprocess returns a code of 1.
         """
         # Everything within the bt121 directory is self-contained and
         # self-referencing, so it's easiest to switch to that directory
         # first
         cwd = os.getcwd()
-        os.chdir(os.path.join(toolsDir, "bt121_image_tools"))
+        os.chdir(os.path.join(cfg.toolsDir, "bt121_image_tools"))
 
         gattTemplate = os.path.join("gatt_files", f"{self._level}.xml")
         gattFile = os.path.join("dephy_gatt_broadcast_bt121", "gatt.xml")
 
         if not os.path.exists(gattTemplate):
-            raise FileNotFoundError(gattTemplate)
+            raise exceptions.NoBluetoothImageError(gattTemplate)
 
         shutil.copyfile(gattTemplate, gattFile)
 
@@ -97,7 +93,7 @@ class FlashBtCommand(Command):
             self.line("Building bluetooth image...")
 
         if proc.returncode == 1:
-            raise OSError("bt121_gatt_broadcast_img.py")
+            raise exceptions.FlashFailedError("bt121_gatt_broadcast_img.py")
 
         bgExe = os.path.join("smart-ready-1.7.0-217", "bin", "bgbuild.exe")
         xmlFile = os.path.join("dephy_gatt_broadcast_bt121", "project.xml")
@@ -105,7 +101,7 @@ class FlashBtCommand(Command):
             self.line("Running smart-ready...")
 
         if proc.returncode == 1:
-            raise OSError("bgbuild.exe")
+            raise exceptions.FlashFailedError("bgbuild.exe")
 
         if os.path.exists("output"):
             files = glob.glob(os.path.join("output", "*.bin"))
@@ -128,9 +124,9 @@ class FlashBtCommand(Command):
     # _flash
     # -----
     def _flash(self, btImageFile: str) -> None:
-        set_tunnel_mode(self._port, baudRate, "BT121", 20)
+        system.set_tunnel_mode(self._port, cfg.baudRate, "BT121", 20)
         cmd = [
-            os.path.join(toolsDir, "stm32flash"),
+            os.path.join(cfg.toolsDir, "stm32flash"),
             "-w",
             btImageFile,
             "-b",
