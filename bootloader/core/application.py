@@ -5,11 +5,7 @@ from cleo import Command
 from cleo.config import ApplicationConfig as BaseApplicationConfig
 from clikit.api.formatter import Style
 
-from bootloader.commands.download_firmware import DownloadFirmwareCommand
-from bootloader.commands.flash_bt import FlashBtCommand
-from bootloader.commands.flash_mcu import FlashMCUCommand
-from bootloader.commands.flash_xbee import FlashXbeeCommand
-from bootloader.commands.init import InitCommand
+from bootloader import __version__
 
 
 # ============================================
@@ -47,7 +43,7 @@ class BootloaderApplication(Application):
     # constructor
     # -----
     def __init__(self) -> None:
-        super().__init__(config=ApplicationConfig())
+        super().__init__("bootloader", __version__, config=ApplicationConfig())
 
         for command in self._get_commands():
             self.add(command())
@@ -66,11 +62,6 @@ class BootloaderApplication(Application):
             A list of commands available to the CLI.
         """
         commandList = [
-            DownloadFirmwareCommand,
-            FlashBtCommand,
-            FlashMCUCommand,
-            FlashXbeeCommand,
-            InitCommand,
         ]
 
         return commandList

@@ -1,77 +1,152 @@
-import os
+from pathlib import Path
 import platform
 import sys
 import tempfile
 
-import boto3
 import botocore.exceptions as bce
-from cleo import Command
+from cleo.helpers import option
+from flexsea.device import Device
 
+from bootloader.commands.download import DownloadCommand
 from bootloader.exceptions import exceptions
-from bootloader.utilities import config as cfg
-from bootloader.utilities.logo import dephyLogo
-from bootloader.utilities.logo import dephyLogoPlain
-from bootloader.utilities.system import endrun
+import bootloader.utilities.config as cfg
+import bootloader.utilities.logo as logo
+from bootloader.utilities.system import find_device
 
 
 # ============================================
 #                 InitCommand
 # ============================================
-class InitCommand(Command):
-    """
-    Lays the foundation for flashing a Dephy device.
+class InitCommand(DownloadCommand):
+    name = "init"
+    description = "Sets up the environment for flashing."
+    options = [
+        option(
+            "firmware",
+            "-f",
+            "Semantic version string of the firmware to flash.",
+            flag=False
+        )
+        option(
+            "port",
+            "-p",
+            "Name of the device's port, e.g., '/dev/ttyACM0'",
+            flag=False
+        )
+    ]
+    help = """Performs the following steps:
+        * Prompts to make sure the battery is removed from the device
+        * Makes sure a supported OS is being used
+        * Locates the device to be flashed
+        * Makes sure that the required STM and PSoC tools are installed
+            * Downloads them if they are not
+        * Makes sure the required firmware is available, if applicable
+            * Downloads it if not
 
-    init
-    """
+        If <info>--port</info> is given then only that port is used. If it is
+        not given, then we search through all available COM ports until we
+        find a valid Dephy device. For this reason, it is recommended that
+        <info>only one</info> device be connected when flashing without
+        setting this option.
+
+        If <info>--firmware</info> is specified, then that version will be downloaded
+        for the Dephy device that has been detected.
+
+        Examples
+        --------
+        bootloader init
+        bootloader init -f=7.2.0
+        """
+
+    _device: Device | None = None
 
     # -----
     # handle
     # -----
-    def handle(self) -> None:
+    def handle(self) -> int:
         """
         Entry point for the command.
         """
         try:
-            self.line(dephyLogo)
+            self._setup(self.option("firmware"), self.option("port"))
+        except ValueError:
+            return 1
+
+        return 0
+
+    # -----
+    # _setup
+    # -----
+    def _setup(self, port: str="") -> None:
+        """
+        Runs the setup process.
+
+        The work is done here instead of in `handle` so that child
+        classes can have access.
+
+        Parameters
+        ----------
+        port : str (optional)
+            The name of the COM port the device to be flashed is connected
+            to.
+
+        Raises
+        ------
+        ValueError
+            If the user does not confirm the battery is removed from
+            the device.
+        """
+        try:
+            self.line(logo.dephyLogo)
         except UnicodeEncodeError:
-            self.line(dephyLogoPlain)
+            self.line(logo.dephyLogoPlain)
 
         self.line("Welcome to the Dephy bootloader!")
 
         msg = "<warning>Please make sure the battery is removed![y|n]</warning>"
         if not self.confirm(msg, False):
-            sys.exit(1)
+            raise ValueError
 
         try:
             self._check_os()
         except exceptions.UnsupportedOSError as err:
-            endrun(err, self.line)
+            self.line(err)
+            sys.exit(1)
 
         self._setup_cache()
 
         try:
-            self._check_tools()
-        except (exceptions.NetworkError, exceptions.S3DownloadError) as err:
-            endrun(err, self.line)
-
-        try:
             self._check_keys()
         except (
+            exceptions.InvalidKeyError,
+            exceptions.MissingKeyError,
+            exceptions.NetworkError,
             exceptions.NoCredentialsError,
             exceptions.NoProfileError,
-            exceptions.MissingKeyError,
-            exceptions.InvalidKeyError,
-            exceptions.NetworkError,
         ) as err:
-            endrun(err, self.line)
+            self.line(err)
+            sys.exit(1)
+
+        try:
+            self._check_tools()
+        except (exceptions.NetworkError, exceptions.S3DownloadError) as err:
+            self.line(err)
+            sys.exit(1)
+
+        # In case init is called more than once
+        if not self._device:
+            try:
+                self._device = system.find_device(port)
+            except exceptions.DeviceNotFoundError as err:
+                self.line(err)
+                sys.exit(1)
 
     # -----
     # _check_os
     # -----
     def _check_os(self) -> None:
         """
-        Makes sure we're running on Windows because PSoC's tools don't
-        work on Linux.
+        Makes sure we're running on a supported OS.
 
         Raises
         ------
@@ -80,7 +155,7 @@ class InitCommand(Command):
         """
         self.write("Checking OS...")
 
-        currentOS = platform.system().lower()
+        currentOS = platform.system.lower()
 
         try:
             assert currentOS in cfg.supportedOS
@@ -99,55 +174,10 @@ class InitCommand(Command):
         """
         self.write("Setting up cache...")
 
-        os.makedirs(cfg.firmwareDir, exist_ok=True)
-        os.makedirs(cfg.toolsDir, exist_ok=True)
+        Path.mkdir(cfg.firmwareDir, partents=True, exist_ok=True)
+        Path.mkdir(cfg.toolsDir, parents=True, exist_ok=True)
 
         self.overwrite("Setting up cache... <success>✓</success>\n")
-
-    # -----
-    # _check_tools
-    # -----
-    def _check_tools(self) -> None:
-        """
-        The bootloader requires tools from PSoC and STM in order to
-        flash the microcontrollers. Here we make sure that those tools
-        are installed. If they aren't, then we download and install
-        them.
-
-        Raises
-        ------
-        NetworkError
-            If we cannot connect to AWS.
-
-        S3DownloadError
-            If a tool fails to download.
-        """
-        s3 = boto3.resource("s3")
-        bucket = s3.Bucket(cfg.toolsBucket)
-
-        for tool in cfg.bootloaderTools:
-            self.write(f"Searching for: <info>{tool}</info>...")
-
-            if not os.path.exists(os.path.join(cfg.toolsDir, tool)):
-                self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")
-
-                self.write("\tDownloading...")
-
-                try:
-                    bucket.download_file(tool, os.path.join(cfg.toolsDir, tool))
-                except bce.EndpointConnectionError as err:
-                    raise exceptions.NetworkError from err
-
-                if not os.path.exists(os.path.join(cfg.toolsDir, tool)):
-                    raise exceptions.S3DownloadError(
-                        cfg.toolsBucket, tool, cfg.toolsDir
-                    )
-
-                self.overwrite("\tDownloading... <success>✓</success>\n")
-
-            else:
-                msg = f"Searching for: <info>{tool}</info>...<success>✓</success>\n"
-                self.overwrite(f"{msg}\n")
 
     # -----
     # _check_keys
@@ -178,24 +208,11 @@ class InitCommand(Command):
         """
         self.write("Checking for access keys...")
 
-        if not os.path.exists(cfg.credentialsFile):
-            raise exceptions.NoCredentialsError
-
-        try:
-            session = boto3.Session(profile_name=cfg.dephyProfile)
-        except bce.ProfileNotFound as err:
-            raise exceptions.NoProfileError from err
-
-        try:
-            client = session.client("s3")
-        except bce.PartialCredentialsError as err:
-            raise exceptions.MissingKeyError from err
-
         # If a key is invalid, we won't know until we try to download
         # something, and it's easier to check that now
         with tempfile.TemporaryFile() as fd:
             try:
-                client.download_fileobj(cfg.firmwareBucket, cfg.connectionFile, fd)
+                self._download(cfg.connectionFile, cfg.firmwareBucket, fd, cfg.dephyProfile)
             except bce.ClientError as err:
                 raise exceptions.InvalidKeyError from err
             except bce.EndpointConnectionError as err:
@@ -204,3 +221,47 @@ class InitCommand(Command):
                 fd.close()
 
         self.overwrite("<info>Checking for access keys</info> <success>✓</success>\n")
+
+    # -----
+    # _check_tools
+    # -----
+    def _check_tools(self) -> None:
+        """
+        The bootloader requires tools from PSoC and STM in order to
+        flash the microcontrollers. Here we make sure that those tools
+        are installed. If they aren't, then we download and install
+        them.
+
+        Raises
+        ------
+        NetworkError
+            If we cannot connect to AWS.
+
+        S3DownloadError
+            If a tool fails to download.
+        """
+        for tool in cfg.bootloaderTools:
+            self.write(f"Searching for: <info>{tool}</info>...")
+
+            dest = Path.join(cfg.toolsDir, tool)
+
+            if not Path.exists(dest):
+                self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")
+
+                self.write("\tDownloading...")
+
+                try:
+                    self._download(tool, cfg.toolsBucket, dest, cfg.dephyProfile)
+                except bce.EndpointConnectionError as err:
+                    raise exceptions.NetworkError from err
+
+                if not Path.exists(dest):
+                    raise exceptions.S3DownloadError(
+                        cfg.toolsBucket, tool, cfg.toolsDir
+                    )
+
+                self.overwrite("\tDownloading... <success>✓</success>\n")
+
+            else:
+                msg = f"Searching for: <info>{tool}</info>...<success>✓</success>\n"
+                self.overwrite(f"{msg}\n")

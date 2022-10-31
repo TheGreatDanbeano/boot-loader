@@ -13,26 +13,6 @@ from bootloader.exceptions.exceptions import DeviceNotFoundError
 # ============================================
 #                 find_device
 # ============================================
-def endrun(err: Exception, print_function: Callable) -> None:
-    """
-    Uses the given print function to display the provided error
-    message.
-
-    Parameters
-    ----------
-    err : Exception
-        The exception to print.
-
-    print_function : Callable
-        The function to use to display the error.
-    """
-    print_function(err)
-    sys.exit(1)
-
-
-# ============================================
-#                 find_device
-# ============================================
 def find_device(port: Union[str, None]) -> Device:
     """
     Tries to establish a connection to the Dephy device given by
@@ -164,3 +144,66 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
         pass
 
     return result
+
+
+# ============================================
+#                build_bt_image
+# ============================================
+def build_bt_image(level: int, address: str) -> Path:
+    """
+    Uses the bluetooth tools repo (downloaded as a part of `init`)
+    to create a bluetooth image file with the correct address.
+
+    Raises
+    ------
+    NoBluetoothImageError
+        If the required gatt file isn't found.
+
+    FlashFailedError
+        If a subprocess returns a code of 1.
+    """
+    # Everything within the bt121 directory is self-contained and
+    # self-referencing, so it's easiest to switch to that directory
+    # first
+    cwd = Path.cwd()
+    os.chdir(Path.joinpath(cfg.toolsDir, "bt121_image_tools"))
+
+    gattTemplate = Path.joinpath("gatt_files", f"{level}.xml")
+    gattFile = Path.joinpath("dephy_gatt_broadcast_bt121", "gatt.xml")
+
+    if not Path.exists(gattTemplate):
+        raise exceptions.NoBluetoothImageError(gattTemplate)
+
+    shutil.copyfile(gattTemplate, gattFile)
+
+    cmd = ["python3", "bt121_gatt_broadcast_img.py", f"{address}"]
+    with sub.Popen(cmd) as proc:
+        pass
+
+    if proc.returncode == 1:
+        raise exceptions.FlashFailedError("bt121_gatt_broadcast_img.py")
+
+    bgExe = Path.joinpath("smart-ready-1.7.0-217", "bin", "bgbuild.exe")
+    xmlFile = Path.joinpath("dephy_gatt_broadcast_bt121", "project.xml")
+    with sub.Popen([bgExe, xmlFile]) as proc:
+        pass
+
+    if proc.returncode == 1:
+        raise exceptions.FlashFailedError("bgbuild.exe")
+
+    if Path.exists("output"):
+        files = glob.glob(Path.joinpath("output", "*.bin"))
+        for file in files:
+            os.remove(file)
+    else:
+        os.mkdir("output")
+
+    btImageFile = f"dephy_gatt_broadcast_bt121_Exo-{address}.bin"
+    shutil.move(Path.joinpath("dephy_gatt_broadcast_bt121", btImageFile), "output")
+    btImageFile = Path.joinpath(
+        Path.cwd(), "bt121_image_tools", "output", btImageFile
+    )
+
+    os.chdir(cwd)
+
+    return btImageFile
