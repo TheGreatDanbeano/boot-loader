@@ -58,7 +58,7 @@ class FlashFailedError(Exception):
     # -----
     # constructor
     # -----
-    def __init__(self, cmd: List) -> None:
+    def __init__(self, cmd: str) -> None:
         self._cmd = cmd
 
     # -----
@@ -164,7 +164,7 @@ class NoBluetoothImageError(Exception):
     # -----
     # constructor
     # -----
-    def __init__(self, imgFile: str) -> None:
+    def __init__(self, imgFile: Path) -> None:
         self._imgFile = imgFile
 
     # -----

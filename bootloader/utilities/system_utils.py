@@ -172,8 +172,8 @@ def build_bt_image_file(level: int, address: str) -> Path:
     cwd = Path.cwd()
     os.chdir(Path.joinpath(cfg.toolsDir, "bt121_image_tools"))
 
-    gattTemplate = Path.joinpath("gatt_files", f"{level}.xml")
-    gattFile = Path.joinpath("dephy_gatt_broadcast_bt121", "gatt.xml")
+    gattTemplate = Path("gatt_files").joinpath(f"{level}.xml")
+    gattFile = Path("dephy_gatt_broadcast_bt121").joinpath("gatt.xml")
 
     if not Path.exists(gattTemplate):
         raise exceptions.NoBluetoothImageError(gattTemplate)
@@ -195,16 +195,16 @@ def build_bt_image_file(level: int, address: str) -> Path:
     if proc.returncode == 1:
         raise exceptions.FlashFailedError("bgbuild.exe")
 
-    if Path.exists("output"):
-        files = glob.glob(Path.joinpath("output", "*.bin"))
+    if Path("output").exists():
+        files = glob.glob(os.path.join("output", "*.bin"))
         for file in files:
             os.remove(file)
     else:
         os.mkdir("output")
 
-    btImageFile = f"dephy_gatt_broadcast_bt121_Exo-{address}.bin"
-    shutil.move(Path.joinpath("dephy_gatt_broadcast_bt121", btImageFile), "output")
-    btImageFile = Path.joinpath(Path.cwd(), "bt121_image_tools", "output", btImageFile)
+    btImageFileBase = f"dephy_gatt_broadcast_bt121_Exo-{address}.bin"
+    shutil.move(Path.joinpath("dephy_gatt_broadcast_bt121", btImageFileBase), "output")
+    btImageFile = Path.cwd().joinpath("bt121_image_tools", "output", btImageFileBase)
 
     os.chdir(cwd)
 

@@ -9,14 +9,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 cleo = "^0.8.1"
-PyYAML = "^6.0"
-rsyncs3 = "^0.2.0"
 pyserial = "^3.5"
+boto3 = "^1.25.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.8.0"
 pylint = "^2.15.4"
 mypy = "^0.982"
+nox = "^2022.8.7"
+pytest = "^7.2.0"
 
 [build-system]
 requires = ["poetry-core"]

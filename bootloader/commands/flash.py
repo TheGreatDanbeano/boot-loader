@@ -77,7 +77,7 @@ class FlashCommand(InitCommand):
         bootloader flash xbee -a=1234 -b=5678
         """
 
-    _targets = []
+    _targets: List[str] = []
 
     # -----
     # handle
@@ -188,9 +188,9 @@ class FlashCommand(InitCommand):
         fwFile += f"{target}_{self.option('firmware')}."
         fwFile += f"{cfg.fwExtensions[target]}"
 
-        dest = Path.joinpath(cfg.firmwareDir, fwFile)
+        dest = Path(cfg.firmwareDir).joinpath(fwFile)
 
-        if not Path.exists(dest):
+        if not dest.exists():
             # posix is because I believe S3 doesn't support windows
             # separators
             fwObj = Path.joinpath(
@@ -208,7 +208,7 @@ class FlashCommand(InitCommand):
                 self.line(err)
                 sys.exit(1)
 
-            if not Path.exists(dest):
+            if not dest.exists():
                 raise exceptions.FirmwareNotFoundError(
                     fwObj,
                     self.option("firmware"),

@@ -156,8 +156,8 @@ class InitCommand(DownloadCommand):
         """
         self.write("Setting up cache...")
 
-        Path.mkdir(cfg.firmwareDir, parents=True, exist_ok=True)
-        Path.mkdir(cfg.toolsDir, parents=True, exist_ok=True)
+        Path(cfg.firmwareDir).mkdir(parents=True, exist_ok=True)
+        Path(cfg.toolsDir).mkdir(parents=True, exist_ok=True)
 
         self.overwrite("Setting up cache... <success>✓</success>\n")
 
@@ -227,9 +227,9 @@ class InitCommand(DownloadCommand):
         for tool in cfg.bootloaderTools:
             self.write(f"Searching for: <info>{tool}</info>...")
 
-            dest = Path.joinpath(cfg.toolsDir, tool)
+            dest = Path(cfg.toolsDir).joinpath(tool)
 
-            if not Path.exists(dest):
+            if not dest.exists():
                 self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")
 
                 self.write("\tDownloading...")
@@ -239,7 +239,7 @@ class InitCommand(DownloadCommand):
                 except bce.EndpointConnectionError as err:
                     raise exceptions.NetworkError from err
 
-                if not Path.exists(dest):
+                if not dest.exists():
                     raise exceptions.S3DownloadError(
                         cfg.toolsBucket, tool, cfg.toolsDir
                     )

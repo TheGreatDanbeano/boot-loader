@@ -34,7 +34,7 @@ class DownloadCommand(Command):
     # -----
     # handle
     # -----
-    def handle(self) -> None:
+    def handle(self) -> int:
         """
         Entry point for the command.
         """
@@ -51,7 +51,7 @@ class DownloadCommand(Command):
     # _download
     # -----
     def _download(
-        self, fileobj: str, bucket: str, dest: str | IO, profile: str
+        self, fileobj: str|Path, bucket: str, dest: Path | IO, profile: str
     ) -> None:
         """
         Downloads `fileobj` from `bucket` to `dest` with the AWS
