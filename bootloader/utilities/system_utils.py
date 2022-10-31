@@ -1,13 +1,17 @@
-import sys
+import glob
+import os
+from pathlib import Path
+import shutil
+import subprocess as sub
 from time import sleep
-from typing import Callable
 from typing import Union
 
 from serial.tools.list_ports import comports
 from flexsea.device import Device
 import flexsea.fx_enums as fxe
 
-from bootloader.exceptions.exceptions import DeviceNotFoundError
+from bootloader.exceptions import exceptions
+from bootloader.utilities import config as cfg
 
 
 # ============================================
@@ -53,11 +57,11 @@ def find_device(port: Union[str, None]) -> Device:
         try:
             _device.open()
         except IOError as err:
-            raise DeviceNotFoundError(port=port) from err
+            raise exceptions.DeviceNotFoundError(port=port) from err
         device = _device
 
     if not device:
-        raise DeviceNotFoundError()
+        raise exceptions.DeviceNotFoundError()
 
     return device
 
@@ -147,9 +151,9 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
 
 
 # ============================================
-#                build_bt_image
+#              build_bt_image_file
 # ============================================
-def build_bt_image(level: int, address: str) -> Path:
+def build_bt_image_file(level: int, address: str) -> Path:
     """
     Uses the bluetooth tools repo (downloaded as a part of `init`)
     to create a bluetooth image file with the correct address.
@@ -200,9 +204,7 @@ def build_bt_image(level: int, address: str) -> Path:
 
     btImageFile = f"dephy_gatt_broadcast_bt121_Exo-{address}.bin"
     shutil.move(Path.joinpath("dephy_gatt_broadcast_bt121", btImageFile), "output")
-    btImageFile = Path.joinpath(
-        Path.cwd(), "bt121_image_tools", "output", btImageFile
-    )
+    btImageFile = Path.joinpath(Path.cwd(), "bt121_image_tools", "output", btImageFile)
 
     os.chdir(cwd)
 

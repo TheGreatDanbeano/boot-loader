@@ -10,8 +10,8 @@ from flexsea.device import Device
 from bootloader.commands.download import DownloadCommand
 from bootloader.exceptions import exceptions
 import bootloader.utilities.config as cfg
-import bootloader.utilities.logo as logo
-from bootloader.utilities.system import find_device
+from bootloader.utilities import logo
+from bootloader.utilities import system_utils as su
 
 
 # ============================================
@@ -22,17 +22,8 @@ class InitCommand(DownloadCommand):
     description = "Sets up the environment for flashing."
     options = [
         option(
-            "firmware",
-            "-f",
-            "Semantic version string of the firmware to flash.",
-            flag=False
-        )
-        option(
-            "port",
-            "-p",
-            "Name of the device's port, e.g., '/dev/ttyACM0'",
-            flag=False
-        )
+            "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
+        ),
     ]
     help = """Performs the following steps:
         * Prompts to make sure the battery is removed from the device
@@ -42,15 +33,6 @@ class InitCommand(DownloadCommand):
             * Downloads them if they are not
         * Makes sure the required firmware is available, if applicable
             * Downloads it if not
-
-        If <info>--port</info> is given then only that port is used. If it is
-        not given, then we search through all available COM ports until we
-        find a valid Dephy device. For this reason, it is recommended that
-        <info>only one</info> device be connected when flashing without
-        setting this option.
-
-        If <info>--firmware</info> is specified, then that version will be downloaded
-        for the Dephy device that has been detected.
 
         Examples
         --------
@@ -68,7 +50,7 @@ class InitCommand(DownloadCommand):
         Entry point for the command.
         """
         try:
-            self._setup(self.option("firmware"), self.option("port"))
+            self._setup(self.option("port"))
         except ValueError:
             return 1
 
@@ -77,7 +59,7 @@ class InitCommand(DownloadCommand):
     # -----
     # _setup
     # -----
-    def _setup(self, port: str="") -> None:
+    def _setup(self, port: str = "") -> None:
         """
         Runs the setup process.
 
@@ -136,7 +118,7 @@ class InitCommand(DownloadCommand):
         # In case init is called more than once
         if not self._device:
             try:
-                self._device = system.find_device(port)
+                self._device = su.find_device(port)
             except exceptions.DeviceNotFoundError as err:
                 self.line(err)
                 sys.exit(1)
@@ -155,7 +137,7 @@ class InitCommand(DownloadCommand):
         """
         self.write("Checking OS...")
 
-        currentOS = platform.system.lower()
+        currentOS = platform.system().lower()
 
         try:
             assert currentOS in cfg.supportedOS
@@ -174,7 +156,7 @@ class InitCommand(DownloadCommand):
         """
         self.write("Setting up cache...")
 
-        Path.mkdir(cfg.firmwareDir, partents=True, exist_ok=True)
+        Path.mkdir(cfg.firmwareDir, parents=True, exist_ok=True)
         Path.mkdir(cfg.toolsDir, parents=True, exist_ok=True)
 
         self.overwrite("Setting up cache... <success>✓</success>\n")
@@ -212,7 +194,9 @@ class InitCommand(DownloadCommand):
         # something, and it's easier to check that now
         with tempfile.TemporaryFile() as fd:
             try:
-                self._download(cfg.connectionFile, cfg.firmwareBucket, fd, cfg.dephyProfile)
+                self._download(
+                    cfg.connectionFile, cfg.firmwareBucket, fd, cfg.dephyProfile
+                )
             except bce.ClientError as err:
                 raise exceptions.InvalidKeyError from err
             except bce.EndpointConnectionError as err:
@@ -243,7 +227,7 @@ class InitCommand(DownloadCommand):
         for tool in cfg.bootloaderTools:
             self.write(f"Searching for: <info>{tool}</info>...")
 
-            dest = Path.join(cfg.toolsDir, tool)
+            dest = Path.joinpath(cfg.toolsDir, tool)
 
             if not Path.exists(dest):
                 self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")

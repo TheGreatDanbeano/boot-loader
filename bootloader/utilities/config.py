@@ -59,6 +59,10 @@ mcuTargets = [
     "mn",
 ]
 
+availableTargets = ["all", "bt", "xbee"] + mcuTargets
+
+fwExtensions = {"habs": "hex", "ex": "cyacd", "re": "cyacd", "mn": "dfu"}
+
 
 # ============================================
 #                 Constants

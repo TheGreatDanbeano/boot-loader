@@ -1,9 +1,16 @@
 from pathlib import Path
+import subprocess as sub
+import sys
+from time import sleep
+from typing import List
 
 from cleo.helpers import argument
 from cleo.helpers import option
 
 from bootloader.commands.init import InitCommand
+from bootloader.exceptions import exceptions
+import bootloader.utilities.config as cfg
+from bootloader.utilities import system_utils as su
 
 
 # ============================================
@@ -18,7 +25,7 @@ class FlashCommand(InitCommand):
             "firmware",
             "-f",
             "Semantic version string of the firmware to flash.",
-            flag=False
+            flag=False,
         ),
         option(
             "level",
@@ -40,11 +47,8 @@ class FlashCommand(InitCommand):
             flag=False,
         ),
         option(
-            "port",
-            "-p",
-            "Name of the device's port, e.g., '/dev/ttyACM0'",
-            flag=False
-        )
+            "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
+        ),
     ]
     help = """Meta command for flashing. <info>target</info> can be:
         * mn
@@ -85,40 +89,26 @@ class FlashCommand(InitCommand):
         try:
             self._setup(self.option("port"))
         except ValueError:
-            return 1
+            sys.exit(1)
 
         try:
             self._get_targets()
         except exceptions.UnknownMCUError as err:
             self.line(err)
-            return 1
+            sys.exit(1)
 
         for target in self._targets:
             try:
                 self._set_tunnel_mode(target)
             except (IOError, OSError, RuntimeError) as err:
                 self.line(err)
-                return 1
+                sys.exit(1)
 
-            if target in cfg.mcuTargets:
-                try:
-                    fwFile = self._get_firmware(target)
-                except exceptions.FirmwareNotFoundError as err:
-                    self.line(err)
-                    return 1
-
-            if target == "habs":
-                cmd = self._flash_habs(fwFile)
-            elif target == "ex":
-                cmd = self._flash_ex(fwFile)
-            elif target == "re":
-                cmd = self._flash_re(fwFile)
-            elif target == "mn":
-                cmd = self._flash_mn(fwFile)
-            elif target == "bt":
-                cmd = self._flash_bt()
-            elif target == "xbee":
-                cmd = self._flash_xbee()
+            try:
+                cmd = self._get_flash_cmd(target)
+            except exceptions.FirmwareNotFoundError as err:
+                self.line(err)
+                sys.exit(1)
 
             with sub.Popen(cmd) as proc:
                 self.write(f"Flashing {target}...")
@@ -126,7 +116,7 @@ class FlashCommand(InitCommand):
             if proc.returncode == 1:
                 msg = "<error>Error: flashing failed.</error>"
                 self.line(msg)
-                return 1
+                sys.exit(1)
 
             self.overwrite(f"Flashing {target}... <success>✓</success>\n")
             _ = self.ask("Please power cycle the device, then press `ENTER`")
@@ -146,7 +136,9 @@ class FlashCommand(InitCommand):
         try:
             assert self.argument("target") in cfg.availableTargets
         except AssertionError as err:
-            raise exceptions.UnknownMCUError(self._target, cfg.mcuTargets) from err
+            raise exceptions.UnknownMCUError(
+                self.argument("target"), cfg.mcuTargets
+            ) from err
 
         if self.argument("target") == "all":
             self._targets = cfg.mcuTargets
@@ -163,8 +155,30 @@ class FlashCommand(InitCommand):
     # -----
     def _set_tunnel_mode(self, target: str) -> None:
         self.write(f"Setting tunnel mode for {target}...")
-        system.set_tunnel_mode(self._device.port, cfg.baudRate, target, 20)
+        su.set_tunnel_mode(self._device.port, cfg.baudRate, target, 20)
         self.overwrite(f"Setting tunnel mode for {target}... <success>✓</success>\n")
+
+    # -----
+    # _get_flash_cmd
+    # -----
+    def _get_flash_cmd(self, target: str) -> List[str]:
+        if target in cfg.mcuTargets:
+            fwFile = self._get_firmware(target)
+
+        if target == "habs":
+            cmd = self._flash_habs(fwFile)
+        elif target == "ex":
+            cmd = self._flash_ex(fwFile)
+        elif target == "re":
+            cmd = self._flash_re(fwFile)
+        elif target == "mn":
+            cmd = self._flash_mn(fwFile)
+        elif target == "bt":
+            cmd = self._flash_bt()
+        elif target == "xbee":
+            cmd = self._flash_xbee()
+
+        return cmd
 
     # -----
     # _get_firmware
@@ -174,15 +188,13 @@ class FlashCommand(InitCommand):
         fwFile += f"{target}_{self.option('firmware')}."
         fwFile += f"{cfg.fwExtensions[target]}"
 
-        dest = Path.join(cfg.firmwareDir, fwFile)
+        dest = Path.joinpath(cfg.firmwareDir, fwFile)
 
         if not Path.exists(dest):
             # posix is because I believe S3 doesn't support windows
             # separators
-            fwObj = Path.join(
-                self.option("firmware"),
-                self._device.deviceType,
-                fwFile
+            fwObj = Path.joinpath(
+                self.option("firmware"), self._device.deviceType, fwFile
             ).as_posix()
 
             try:
@@ -191,7 +203,7 @@ class FlashCommand(InitCommand):
                 exceptions.NoCredentialsError,
                 exceptions.NoProfileError,
                 exceptions.MissingKeyError,
-                TypeError
+                TypeError,
             ) as err:
                 self.line(err)
                 sys.exit(1)
@@ -199,10 +211,9 @@ class FlashCommand(InitCommand):
             if not Path.exists(dest):
                 raise exceptions.FirmwareNotFoundError(
                     fwObj,
-                    fwFile,
                     self.option("firmware"),
                     self._device.deviceType,
-                    target
+                    target,
                 )
 
         return dest
@@ -210,10 +221,10 @@ class FlashCommand(InitCommand):
     # -----
     # _flash_habs
     # -----
-    def _flash_habs(self, fwFile: str|Path) -> List[str]:
+    def _flash_habs(self, fwFile: str | Path) -> List[str]:
 
         cmd = [
-            f"{Path.join(cfg.toolsDir, 'STMFlashLoader.exe')}",
+            f"{Path.joinpath(cfg.toolsDir, 'STMFlashLoader.exe')}",
             "-c",
             "--pn",
             f"{self._device.port}",
@@ -242,7 +253,7 @@ class FlashCommand(InitCommand):
     # -----
     # _flash_ex
     # -----
-    def _flash_ex(self, fwFile: str|Path) -> List[str]:
+    def _flash_ex(self, fwFile: str | Path) -> List[str]:
         cmd = [
             f"{Path.joinpath(cfg.toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._device.port}",
@@ -254,7 +265,7 @@ class FlashCommand(InitCommand):
     # -----
     # _flash_re
     # -----
-    def _flash_re(self, fwFile: str|Path) -> List[str]:
+    def _flash_re(self, fwFile: str | Path) -> List[str]:
         cmd = [
             f"{Path.joinpath(cfg.toolsDir, 'psocbootloaderhost.exe')}",
             f"{self._device.port}",
@@ -266,7 +277,7 @@ class FlashCommand(InitCommand):
     # -----
     # _flash_mn
     # -----
-    def _flash_mn(self, fwFile: str|Path) -> List[str]:
+    def _flash_mn(self, fwFile: str | Path) -> List[str]:
         cmd = [
             f"{Path.joinpath(cfg.toolsDir, 'DfuSeCommand.exe')}",
             "-c",
@@ -281,9 +292,11 @@ class FlashCommand(InitCommand):
     # _flash_bt
     # -----
     def _flash_bt(self) -> List[str]:
-        btImageFile = system.build_bt_image_file(self.option("level"), self.option("address"))
+        btImageFile = su.build_bt_image_file(
+            self.option("level"), self.option("address")
+        )
         cmd = [
-            Path.join(cfg.toolsDir, "stm32flash"),
+            Path.joinpath(cfg.toolsDir, "stm32flash"),
             "-w",
             btImageFile,
             "-b",
@@ -299,7 +312,7 @@ class FlashCommand(InitCommand):
     def _flash_xbee(self) -> List[str]:
         cmd = [
             "python3",
-            Path.join(cfg.toolsDir, "xb24c.py"),
+            Path.joinpath(cfg.toolsDir, "xb24c.py"),
             self._device.port,
             self.option("address"),
             self.option("buddyAddress"),

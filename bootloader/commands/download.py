@@ -42,7 +42,7 @@ class DownloadCommand(Command):
             self.argument("obj"),
             self.option("bucket"),
             self.option("dest"),
-            self.option("profile")
+            self.option("profile"),
         )
 
         return 0
@@ -50,7 +50,9 @@ class DownloadCommand(Command):
     # -----
     # _download
     # -----
-    def _download(self, fileobj: str, bucket: str, dest: str|IO, profile: str) -> None:
+    def _download(
+        self, fileobj: str, bucket: str, dest: str | IO, profile: str
+    ) -> None:
         """
         Downloads `fileobj` from `bucket` to `dest` with the AWS
         credentials profile `profile`.
@@ -69,7 +71,7 @@ class DownloadCommand(Command):
         TypeError
             If the given dest is not a string or file-like object.
         """
-        credentialsFile = Path.join(Path.home(), ".aws", "credentials")
+        credentialsFile = Path.joinpath(Path.home(), ".aws", "credentials")
 
         if not Path.exists(credentialsFile):
             raise exceptions.NoCredentialsError

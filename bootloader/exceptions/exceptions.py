@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 
 
@@ -67,6 +68,36 @@ class FlashFailedError(Exception):
         msg = "<error>Error: flashing failed:</error>"
         for cmdPiece in self._cmd:
             msg += f"\n\t{cmdPiece}"
+        return msg
+
+
+# ============================================
+#            FirmwareNotFoundError
+# ============================================
+class FirmwareNotFoundError(Exception):
+    """
+    Raised when the desired firmware cannot be found on S3.
+    """
+
+    # -----
+    # constructor
+    # -----
+    def __init__(self, fwObj: Path, fwVer: str, deviceType: str, target: str) -> None:
+        self._fwObj = fwObj
+        self._fwVer = fwVer
+        self._deviceType = deviceType
+        self._target = target
+
+    # -----
+    # __str__
+    # -----
+    def __str__(self) -> str:
+        msg = "<error>Error: unable to locate firmware file.</error>"
+        msg += f"\n\tS3 object: {self._fwObj}"
+        msg += f"\n\tFirmware version: {self._fwVer}"
+        msg += f"\n\tDevice type: {self._deviceType}"
+        msg += f"\n\tTarget: {self._target}"
+
         return msg
 
 
