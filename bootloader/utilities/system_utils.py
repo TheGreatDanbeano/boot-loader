@@ -117,13 +117,13 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
     except IOError as err:
         raise IOError(f"Failed to open device at {port}") from err
 
-    if device.app_type.value not in fxe.APP_NAMES:
+    if device.app_type not in fxe.deviceTypes:
         raise RuntimeError(f"Unknown application type: {device.app_type.value}")
 
     wait = 1
-    state = fxe.FX_FAILURE.value
+    state = fxe.FAILURE
 
-    while timeout > 0 and state != fxe.FX_SUCCESS.value:
+    while timeout > 0 and state != fxe.SUCCESS:
         if timeout % 5 == 0:
             try:
                 device.activate_bootloader(target)
@@ -139,7 +139,7 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
         except IOError:
             pass
 
-    if state == fxe.FX_SUCCESS.value:
+    if state == fxe.SUCCESS:
         result = True
 
     try:

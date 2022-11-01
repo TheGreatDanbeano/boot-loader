@@ -8,6 +8,7 @@ from cleo import Command
 from cleo.helpers import argument
 
 from bootloader.exceptions import exceptions
+from bootloader.utilities.config import credentialsFile
 
 
 # ============================================
@@ -22,14 +23,14 @@ class DownloadCommand(Command):
         argument("dest", "Location to save downloaded file."),
         argument("profile", "AWS credentials profile to use."),
     ]
-    help = """Downloads the given file <info>obj</info> from the given
-        bucket <info>bucket</info> to the given destination <info>dest</info>
-        using the given credentials profile <info>profile</info>.
+    help = """Downloads the given file <info>obj</info> from the given bucket
+    <info>bucket</info> to the given destination <info>dest</info> using the given
+    credentials profile <info>profile</info>.
 
-        Examples
-        --------
-        bootloader download stm32flash.exe dephy-bootloader-tools ./stflash dephy
-        """
+    Examples
+    --------
+    bootloader download stm32flash.exe dephy-bootloader-tools ./stflash dephy
+    """
 
     # -----
     # handle
@@ -51,7 +52,7 @@ class DownloadCommand(Command):
     # _download
     # -----
     def _download(
-        self, fileobj: str|Path, bucket: str, dest: Path | IO, profile: str
+        self, fileobj: str, bucket: str, dest: str | IO, profile: str
     ) -> None:
         """
         Downloads `fileobj` from `bucket` to `dest` with the AWS
@@ -71,8 +72,6 @@ class DownloadCommand(Command):
         TypeError
             If the given dest is not a string or file-like object.
         """
-        credentialsFile = Path.joinpath(Path.home(), ".aws", "credentials")
-
         if not Path.exists(credentialsFile):
             raise exceptions.NoCredentialsError
 

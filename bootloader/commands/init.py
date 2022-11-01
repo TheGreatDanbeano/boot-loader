@@ -85,15 +85,15 @@ class InitCommand(DownloadCommand):
 
         self.line("Welcome to the Dephy bootloader!")
 
-        msg = "<warning>Please make sure the battery is removed![y|n]</warning>"
+        msg = "<warning>Please make sure the battery is removed!</warning>"
         if not self.confirm(msg, False):
             raise ValueError
 
-        try:
-            self._check_os()
-        except exceptions.UnsupportedOSError as err:
-            self.line(err)
-            sys.exit(1)
+        # try:
+        #     self._check_os()
+        # except exceptions.UnsupportedOSError as err:
+        #     self.line(err)
+        #     sys.exit(1)
 
         self._setup_cache()
 
@@ -156,8 +156,8 @@ class InitCommand(DownloadCommand):
         """
         self.write("Setting up cache...")
 
-        Path(cfg.firmwareDir).mkdir(parents=True, exist_ok=True)
-        Path(cfg.toolsDir).mkdir(parents=True, exist_ok=True)
+        cfg.firmwareDir.mkdir(parents=True, exist_ok=True)
+        cfg.toolsDir.mkdir(parents=True, exist_ok=True)
 
         self.overwrite("Setting up cache... <success>✓</success>\n")
 
@@ -224,10 +224,13 @@ class InitCommand(DownloadCommand):
         S3DownloadError
             If a tool fails to download.
         """
-        for tool in cfg.bootloaderTools:
+        _os = platform.system().lower()
+        _bootloaderTools = cfg.bootloaderTools[_os]
+
+        for tool in _bootloaderTools:
             self.write(f"Searching for: <info>{tool}</info>...")
 
-            dest = Path(cfg.toolsDir).joinpath(tool)
+            dest = cfg.toolsDir.joinpath(tool)
 
             if not dest.exists():
                 self.line(f"\n\t<info>{tool}</info> <warning>not found.</warning>")
@@ -235,7 +238,11 @@ class InitCommand(DownloadCommand):
                 self.write("\tDownloading...")
 
                 try:
-                    self._download(tool, cfg.toolsBucket, dest, cfg.dephyProfile)
+                    # boto3 requires dest be either IOBase or str
+                    toolObj = str(Path(_os).joinpath(tool).as_posix())
+                    self._download(
+                        toolObj, cfg.toolsBucket, str(dest), cfg.dephyProfile
+                    )
                 except bce.EndpointConnectionError as err:
                     raise exceptions.NetworkError from err
 

@@ -59,23 +59,23 @@ class FlashCommand(InitCommand):
         * bt (bluetooth)
         * xbee
 
-        If flashing mn, ex, re, or habs, <info>--firmware</info> refers to the
-        semantic version string of the firmware you'd like to flash, e.g., 7.2.0.
-        If flashing bluetooth, it refers to the level, e.g., 2.
+    If flashing mn, ex, re, or habs, <info>--firmware</info> refers to the
+    semantic version string of the firmware you'd like to flash, e.g., 7.2.0.
+    If flashing bluetooth, it refers to the level, e.g., 2.
 
-        If <info>--port</info> is given then only that port is used. If it is
-        not given, then we search through all available COM ports until we
-        find a valid Dephy device. For this reason, it is recommended that
-        <info>only one</info> device be connected when flashing without
-        setting this option.
+    If <info>--port</info> is given then only that port is used. If it is
+    not given, then we search through all available COM ports until we
+    find a valid Dephy device. For this reason, it is recommended that
+    <info>only one</info> device be connected when flashing without
+    setting this option.
 
-        Examples
-        --------
-        bootloader flash mn -f=7.2.0
-        bootloader flash mcu --firmware=8.0.0 -p=/dev/ttyACM0
-        bootloader flash bt -f=2 -a=1234
-        bootloader flash xbee -a=1234 -b=5678
-        """
+    Examples
+    --------
+    bootloader flash mn -f=7.2.0
+    bootloader flash mcu --firmware=8.0.0 -p=/dev/ttyACM0
+    bootloader flash bt -f=2 -a=1234
+    bootloader flash xbee -a=1234 -b=5678
+    """
 
     _targets: List[str] = []
 
@@ -140,7 +140,7 @@ class FlashCommand(InitCommand):
                 self.argument("target"), cfg.mcuTargets
             ) from err
 
-        if self.argument("target") == "all":
+        if self.argument("target") == "mcu":
             self._targets = cfg.mcuTargets
         else:
             self._targets = [

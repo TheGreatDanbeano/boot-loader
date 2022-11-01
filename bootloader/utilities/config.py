@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 
 # ============================================
@@ -7,13 +7,13 @@ import os
 
 # Root directory of where to save bootloading tools and downloaded
 # firmware
-cacheDir = os.path.join(os.environ["HOME"], ".dephy", "bootloader")
+cacheDir = Path.joinpath(Path.home(), ".dephy", "bootloader")
 
 # Directory to save bootloading tools
-toolsDir = os.path.join(cacheDir, "tools")
+toolsDir = cacheDir.joinpath("tools")
 
 # Directory to save firmware
-firmwareDir = os.path.join(cacheDir, "firmware")
+firmwareDir = cacheDir.joinpath("firmware")
 
 
 # ============================================
@@ -21,10 +21,10 @@ firmwareDir = os.path.join(cacheDir, "firmware")
 # ============================================
 
 # Public bucket where bootloading tools are stored
-toolsBucket = "https://dephy-bootloader-tools.s3.us-east-2.amazonaws.com/"
+toolsBucket = "dephy-bootloader-tools"
 
 # Private bucket where the firmware is stored
-firmwareBucket = "https://dephy-firmware.s3.us-east-2.amazonaws.com/"
+firmwareBucket = "dephy-firmware"
 
 # Credentials profile name
 dephyProfile = "dephy"
@@ -33,20 +33,22 @@ dephyProfile = "dephy"
 connectionFile = "connection_file.txt"
 
 # AWS credentials file
-credentialsFile = os.path.join(os.environ["HOME"], ".aws", "credentials")
+credentialsFile = Path.joinpath(Path.home(), ".aws", "credentials")
 
 
 # ============================================
 #                Dependencies
 # ============================================
-bootloaderTools = [
-    "psocbootloaderhost.exe",
-    "bt121_image_tools",
-    "DfuSeCommand.exe",
-    "STMFlashLoader.exe",
-    "stm32flash.exe",
-    "XB24C",
-]
+bootloaderTools = {
+    "windows": [
+        "psocbootloaderhost.exe",
+        "bt121_image_tools",
+        "DfuSeCommand.exe",
+        "STMFlashLoader.exe",
+        "stm32flash.exe",
+        "XB24C",
+    ]
+}
 
 
 # ============================================
