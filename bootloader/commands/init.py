@@ -192,10 +192,10 @@ class InitCommand(DownloadCommand):
 
         # If a key is invalid, we won't know until we try to download
         # something, and it's easier to check that now
-        with tempfile.TemporaryFile() as fd:
+        with tempfile.NamedTemporaryFile() as fd:
             try:
                 self._download(
-                    cfg.connectionFile, cfg.firmwareBucket, fd, cfg.dephyProfile
+                    cfg.connectionFile, cfg.firmwareBucket, fd.name, cfg.dephyProfile
                 )
             except bce.ClientError as err:
                 raise exceptions.InvalidKeyError from err

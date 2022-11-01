@@ -1,6 +1,4 @@
-from io import IOBase
 from pathlib import Path
-from typing import IO
 
 import boto3
 import botocore.exceptions as bce
@@ -52,7 +50,7 @@ class DownloadCommand(Command):
     # _download
     # -----
     def _download(
-        self, fileobj: str, bucket: str, dest: str | IO, profile: str
+        self, fileobj: str, bucket: str, dest: str, profile: str
     ) -> None:
         """
         Downloads `fileobj` from `bucket` to `dest` with the AWS
@@ -85,9 +83,4 @@ class DownloadCommand(Command):
         except bce.PartialCredentialsError as err:
             raise exceptions.MissingKeyError from err
 
-        if isinstance(dest, IOBase):
-            client.download_fileobj(bucket, fileobj, dest)
-        elif isinstance(dest, str):
-            client.download_file(bucket, fileobj, dest)
-        else:
-            raise TypeError
+        client.download_file(bucket, fileobj, dest)
