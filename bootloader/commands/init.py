@@ -1,7 +1,9 @@
+import os
 from pathlib import Path
 import platform
 import sys
 import tempfile
+import zipfile
 
 import botocore.exceptions as bce
 from cleo.helpers import option
@@ -216,6 +218,21 @@ class InitCommand(DownloadCommand):
         are installed. If they aren't, then we download and install
         them.
 
+        S3 does not have a hierarchial structure like a normal file system.
+        Instead, this behavior is mimicked with names that use /.
+
+        Downloading "recursively" is only possible by looping over the
+        `objects` of a `Bucket` object. Unfortunately, it does not appear
+        to be possible to configure credential profiles in this way. To
+        use credential profiles, a `Session` and `Client` object are
+        needed.
+
+        Such objects can "list" `objects`, but the response is a json
+        packet whose structure is subject to change and needs to be
+        manually parsed. As such, those tools that are directories are
+        zipped into a single archive and then extracted once downloaded
+        in order to avoid the "recursion" problem all together.
+
         Raises
         ------
         NetworkError
@@ -250,6 +267,12 @@ class InitCommand(DownloadCommand):
                     raise exceptions.S3DownloadError(
                         cfg.toolsBucket, tool, cfg.toolsDir
                     )
+
+                if zipfile.is_zipfile(dest):
+                    with zipfile.ZipFile(dest, "r") as archive:
+                        base = dest.name.split(".")[0]
+                        extractedDest = Path(os.path.basename.dirname(dest)).joinpath(base)
+                        archive.extractall(extractedDest)
 
                 self.overwrite("\tDownloading... <success>✓</success>\n")
 
