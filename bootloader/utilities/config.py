@@ -42,11 +42,11 @@ credentialsFile = Path.joinpath(Path.home(), ".aws", "credentials")
 bootloaderTools = {
     "windows": [
         "psocbootloaderhost.exe",
-        "bt121_image_tools",
+        "bt121_image_tools.zip",
         "DfuSeCommand.exe",
         "STMFlashLoader.exe",
         "stm32flash.exe",
-        "XB24C",
+        "XB24C.zip",
     ]
 }
 
@@ -61,7 +61,7 @@ mcuTargets = [
     "mn",
 ]
 
-availableTargets = ["all", "bt", "xbee"] + mcuTargets
+availableTargets = ["mcu", "bt", "xbee"] + mcuTargets
 
 fwExtensions = {"habs": "hex", "ex": "cyacd", "re": "cyacd", "mn": "dfu"}
 
