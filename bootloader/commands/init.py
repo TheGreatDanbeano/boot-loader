@@ -206,7 +206,7 @@ class InitCommand(DownloadCommand):
             finally:
                 fd.close()
 
-        self.overwrite("<info>Checking for access keys</info> <success>✓</success>\n")
+        self.overwrite("Checking for access keys... <success>✓</success>\n")
 
     # -----
     # _check_tools
@@ -271,7 +271,7 @@ class InitCommand(DownloadCommand):
                 if zipfile.is_zipfile(dest):
                     with zipfile.ZipFile(dest, "r") as archive:
                         base = dest.name.split(".")[0]
-                        extractedDest = Path(os.path.basename.dirname(dest)).joinpath(base)
+                        extractedDest = Path(os.path.dirname(dest)).joinpath(base)
                         archive.extractall(extractedDest)
 
                 self.overwrite("\tDownloading... <success>✓</success>\n")

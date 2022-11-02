@@ -44,7 +44,7 @@ def find_device(port: Union[str, None]) -> Device:
 
     if not port:
         for _port in comports():
-            _device = Device(_port, 230400)
+            _device = Device(_port.device, 230400)
             try:
                 _device.open()
             except IOError:
@@ -69,18 +69,15 @@ def find_device(port: Union[str, None]) -> Device:
 # ============================================
 #               set_tunnel_mode
 # ============================================
-def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool:
+def set_tunnel_mode(device: Device, target: str, timeout: int) -> bool:
     """
     Activate the bootloader in `target` and wait until either it's active
     or `timeout` seconds have passed.
 
     Parameters
     ----------
-    port : str
-        The name of the port to connect to, e.g., '/dev/ttyACM0'.
-
-    baudRate : int
-        The baud rate used for communication with the device.
+    device : Device
+        Instance of the Device class representing the device to be flashed.
 
     target : str
         The name of the target to set (abbreviated).
@@ -106,28 +103,20 @@ def set_tunnel_mode(port: str, baudRate: int, target: str, timeout: int) -> bool
         something went wrong.
     """
     result = False
-
-    try:
-        device = Device(port, baudRate)
-    except OSError as err:
-        raise OSError("Failed to load pre-compiled flexsea C libraries.") from err
-
-    try:
-        device.open(log_level=0)
-    except IOError as err:
-        raise IOError(f"Failed to open device at {port}") from err
-
-    if device.app_type not in fxe.deviceTypes:
-        raise RuntimeError(f"Unknown application type: {device.app_type.value}")
-
     wait = 1
     state = fxe.FAILURE
+
+    if not device.is_open:
+        try:
+            device.open(log_level=0)
+        except (IOError, ValueError, KeyError) as err:
+            raise IOError(f"Failed to open device at {port}") from err
 
     while timeout > 0 and state != fxe.SUCCESS:
         if timeout % 5 == 0:
             try:
                 device.activate_bootloader(target)
-            except (IOError, ValueError):
+            except (IOError, ValueError, KeyError):
                 pass
         sleep(wait)
         timeout -= wait

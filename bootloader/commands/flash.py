@@ -155,7 +155,7 @@ class FlashCommand(InitCommand):
     # -----
     def _set_tunnel_mode(self, target: str) -> None:
         self.write(f"Setting tunnel mode for {target}...")
-        su.set_tunnel_mode(self._device.port, cfg.baudRate, target, 20)
+        su.set_tunnel_mode(self._device, target, 20)
         self.overwrite(f"Setting tunnel mode for {target}... <success>✓</success>\n")
 
     # -----
