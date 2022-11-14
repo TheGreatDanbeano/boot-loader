@@ -6,10 +6,12 @@ import tempfile
 import zipfile
 
 import botocore.exceptions as bce
+from cleo import Command
 from cleo.helpers import option
+import flexsea.config as fxc
 from flexsea.device import Device
+import flexsea.utilities as fxu
 
-from bootloader.commands.download import DownloadCommand
 from bootloader.exceptions import exceptions
 import bootloader.utilities.config as cfg
 from bootloader.utilities import logo
@@ -19,12 +21,18 @@ from bootloader.utilities import system_utils as su
 # ============================================
 #                 InitCommand
 # ============================================
-class InitCommand(DownloadCommand):
+class InitCommand(Command):
     name = "init"
     description = "Sets up the environment for flashing."
     options = [
         option(
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
+        ),
+        option(
+            "firmware",
+            "-f",
+            "Semantic version string of the device's current firmware, e.g. 7.2.0",
+            flag=False,
         ),
     ]
     help = """Performs the following steps:
@@ -52,7 +60,7 @@ class InitCommand(DownloadCommand):
         Entry point for the command.
         """
         try:
-            self._setup(self.option("port"))
+            self._setup(self.option("port"), self.option("firmware"))
         except ValueError:
             return 1
 
@@ -61,7 +69,7 @@ class InitCommand(DownloadCommand):
     # -----
     # _setup
     # -----
-    def _setup(self, port: str = "") -> None:
+    def _setup(self, port: str = "", cLibVersion: str = fxc.LTS) -> None:
         """
         Runs the setup process.
 
@@ -73,6 +81,9 @@ class InitCommand(DownloadCommand):
         port : str (optional)
             The name of the COM port the device to be flashed is connected
             to.
+
+        cLibVersion : str
+            The semantic version string of the firmware currently on the device.
 
         Raises
         ------
@@ -102,25 +113,25 @@ class InitCommand(DownloadCommand):
         try:
             self._check_keys()
         except (
-            exceptions.InvalidKeyError,
-            exceptions.MissingKeyError,
-            exceptions.NetworkError,
-            exceptions.NoCredentialsError,
-            exceptions.NoProfileError,
+            bce.ClientError,
+            bce.ProfileNotFound,
+            bce.PartialCredentialsError,
+            bce.EndpointConnectionError,
+            exceptions.S3DownloadError,
         ) as err:
             self.line(err)
             sys.exit(1)
 
         try:
             self._check_tools()
-        except (exceptions.NetworkError, exceptions.S3DownloadError) as err:
+        except (bce.EndpointConnectionError, exceptions.S3DownloadError) as err:
             self.line(err)
             sys.exit(1)
 
         # In case init is called more than once
         if not self._device:
             try:
-                self._device = su.find_device(port)
+                self._device = su.find_device(port, cLibVersion)
             except exceptions.DeviceNotFoundError as err:
                 self.line(err)
                 sys.exit(1)
@@ -174,21 +185,21 @@ class InitCommand(DownloadCommand):
 
         Raises
         ------
-        InvalidKeyError
+        botocore.exceptions.ClientError
             If one or both of the keys are invalid.
 
-        MissingKeyError
+        botocore.exceptions.PartialCredentialsError
             If one or both of the required keys are missing.
 
-        NetworkError
+        botocore.exceptions.EndpointConnectionError
             If we cannot connect to AWS.
 
-        NoCredentialsError
-            If the `~/.aws/credentials` file doesn't exist.
-
-        NoProfileError
+        botocore.exceptions.ProfileNotFound
             If the `dephy` profile doesn't exist in the AWS
-            credentials file.
+            credentials file, or the credentials file doesn't exist.
+
+        S3DownloadError
+            If the download fails.
         """
         self.write("Checking for access keys...")
 
@@ -196,13 +207,20 @@ class InitCommand(DownloadCommand):
         # something, and it's easier to check that now
         with tempfile.NamedTemporaryFile() as fd:
             try:
-                self._download(
+                fxu.download(
                     cfg.connectionFile, cfg.firmwareBucket, fd.name, cfg.dephyProfile
                 )
-            except bce.ClientError as err:
-                raise exceptions.InvalidKeyError from err
-            except bce.EndpointConnectionError as err:
-                raise exceptions.NetworkError from err
+            except (
+                bce.ClientError,
+                bce.ProfileNotFound,
+                bce.PartialCredentialsError,
+                bce.EndpointConnectionError,
+            ) as err:
+                raise err
+            except AssertionError as err:
+                raise exceptions.S3DownloadError(
+                    cfg.firmwareBucket, cfg.connectionFile, fd.name
+                ) from err
             finally:
                 fd.close()
 
@@ -235,7 +253,7 @@ class InitCommand(DownloadCommand):
 
         Raises
         ------
-        NetworkError
+        botocore.exceptions.EndpointConnectionError
             If we cannot connect to AWS.
 
         S3DownloadError
@@ -257,16 +275,13 @@ class InitCommand(DownloadCommand):
                 try:
                     # boto3 requires dest be either IOBase or str
                     toolObj = str(Path(_os).joinpath(tool).as_posix())
-                    self._download(
-                        toolObj, cfg.toolsBucket, str(dest), cfg.dephyProfile
-                    )
+                    fxu.download(toolObj, cfg.toolsBucket, str(dest), cfg.dephyProfile)
                 except bce.EndpointConnectionError as err:
-                    raise exceptions.NetworkError from err
-
-                if not dest.exists():
+                    raise err
+                except AssertionError as err:
                     raise exceptions.S3DownloadError(
-                        cfg.toolsBucket, tool, cfg.toolsDir
-                    )
+                        cfg.toolsBucket, toolObj, str(dest)
+                    ) from err
 
                 if zipfile.is_zipfile(dest):
                     with zipfile.ZipFile(dest, "r") as archive:

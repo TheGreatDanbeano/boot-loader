@@ -1,26 +1,4 @@
 from pathlib import Path
-from typing import List
-
-
-# ============================================
-#               AccessKeyError
-# ============================================
-class AccessKeyError(Exception):
-    """
-    Raised when either the public or private AWS S3 access key for the
-    firmware isn't found.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: AWS access keys not found!</error>"
-        msg += "\n\tPlease save your keys in <info>`~/.aws/credentials`</info> as:"
-        msg += "\n\n\t\t<info>[dephy]\n\t\taws_access_key_id=XXXX"
-        msg += "\n\t\taws_secret_access_key=YYYY\n\n</info>"
-        msg += "\nYou should have received access to these keys with your purchase.\n"
-        return msg
 
 
 # ============================================
@@ -102,58 +80,6 @@ class FirmwareNotFoundError(Exception):
 
 
 # ============================================
-#               InvalidKeyError
-# ============================================
-class InvalidKeyError(Exception):
-    """
-    Raised if one (or both) of the AWS access key is (are) incorrect.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: invalid keys.</error>"
-        return msg
-
-
-# ============================================
-#               MissingKeyError
-# ============================================
-class MissingKeyError(Exception):
-    """
-    Raised if one (or both) of the required AWS keys is (are) missing.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: Missing keys.</error>\n\t"
-        msg += "Need both `aws_access_key_id` and `aws_secret_access_key` in\n\t"
-        msg += "the `[dephy]` profile.\n\t"
-        msg += "See: <info>https://tinyurl.com/4sc3rwut</info>"
-        return msg
-
-
-# ============================================
-#                NetworkError
-# ============================================
-class NetworkError(Exception):
-    """
-    Raised if we cannot connect to AWS.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: could not connect to AWS.</error>\n\t"
-        msg += "Check your internet connection."
-        return msg
-
-
-# ============================================
 #             NoBluetoothImageError
 # ============================================
 class NoBluetoothImageError(Exception):
@@ -172,41 +98,6 @@ class NoBluetoothImageError(Exception):
     # -----
     def __str__(self) -> str:
         msg = f"<error>Error: could not find file:</error>\n\t{self._imgFile}"
-        return msg
-
-
-# ============================================
-#              NoCredentialsError
-# ============================================
-class NoCredentialsError(Exception):
-    """
-    Raised if `boto3` cannot find any credentials.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: `~/.aws/credentials` file not found.</error>"
-        return msg
-
-
-# ============================================
-#               NoProfileError
-# ============================================
-class NoProfileError(Exception):
-    """
-    Raised if the `[dephy]` profile isn't present in the AWS
-    credentials file.
-    """
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: `dephy` profile not found.</error>\n\t"
-        msg += "Please save the access keys under `[dephy]` in `~/.aws/credentials`"
-        msg += "\n\tSee: <info>https://tinyurl.com/4sc3rwut</info>"
         return msg
 
 
@@ -234,34 +125,6 @@ class S3DownloadError(Exception):
         msg += f"\n\tFile: <info>{self._file}</info>"
         msg += f"\n\tBucket: <info>{self._bucket}</info>"
         msg += f"\n\tDestination: <info>{self._path}</info>"
-        return msg
-
-
-# ============================================
-#                UnknownMCUError
-# ============================================
-class UnknownMCUError(Exception):
-    """
-    Raised when trying to flash an unexpected, unknown, or unsupported
-    microcontroller.
-    """
-
-    # -----
-    # constructor
-    # -----
-    def __init__(self, mcu: str, supportedMCUs: List) -> None:
-        self._mcu = mcu
-        self._supportedMCUs = supportedMCUs
-
-    # -----
-    # __str__
-    # -----
-    def __str__(self) -> str:
-        msg = "<error>Error: unknown microcontroller</error>:"
-        msg += f"\n\tMicrocontroller: <info>{self._mcu}</info>"
-        msg += "\n\tSupported:"
-        for mcu in self._supportedMCUs:
-            msg += f"\n\t\t* <info>{mcu}</info>"
         return msg
 
 

@@ -4,13 +4,14 @@ import sys
 from time import sleep
 from typing import List
 
+import botocore.exceptions as bce
 from cleo.helpers import argument
 from cleo.helpers import option
+import flexsea.utilities as fxu
 
 from bootloader.commands.init import InitCommand
 from bootloader.exceptions import exceptions
 import bootloader.utilities.config as cfg
-from bootloader.utilities import system_utils as su
 
 
 # ============================================
@@ -22,8 +23,8 @@ class FlashCommand(InitCommand):
     arguments = [
         argument("target", "The target to be flashed."),
         argument("from", "Current firmware's semantic version string, e.g., 7.2.0"),
-        argument("to", "Desired firmware's semantic version string, e.g., 9.1.0")
-        ]
+        argument("to", "Desired firmware's semantic version string, e.g., 9.1.0"),
+    ]
     options = [
         option(
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
@@ -81,13 +82,17 @@ class FlashCommand(InitCommand):
                 self.line(err)
                 sys.exit(1)
 
-            cmd = self._get_flash_cmd(target)
+            cmd = self._get_flash_cmd(target, fwFile)
 
-            try:
-                self._set_tunnel_mode(target)
-            except (IOError, OSError, RuntimeError) as err:
-                self.line(err)
+            self.write(f"Setting tunnel mode for {target}...")
+            if not self._device.set_tunnel_mode(target, 20):
+                msg = "\n<error>Error</error>: failed to activate bootloader for: "
+                msg += f"<info>`{target}`</info>"
+                self.line(msg)
                 sys.exit(1)
+            self.overwrite(
+                f"Setting tunnel mode for {target}... <success>✓</success>\n"
+            )
 
             with sub.Popen(cmd) as proc:
                 self.write(f"Flashing {target}...")
@@ -97,9 +102,11 @@ class FlashCommand(InitCommand):
                 self.line(msg)
                 sys.exit(1)
 
-            self.overwrite(f"Flashing {target}... <success>✓</success>\n")
-            _ = self.ask("Please power cycle the device, then press `ENTER`")
+            _ = self.ask(
+                "<warning>Please power cycle the device, then press `ENTER`</warning>"
+            )
             sleep(3)
+            self.overwrite(f"Flashing {target}... <success>✓</success>\n")
             self.line("\n\n")
 
         return 0
@@ -113,7 +120,9 @@ class FlashCommand(InitCommand):
         Converts the given target into a list so as to be able to handle
         the `all` case more easily.
         """
-        targets = [self.argument("target"),]
+        targets = [
+            self.argument("target"),
+        ]
 
         if self.argument("target") == "all":
             targets = cfg.mcuTargets
@@ -124,20 +133,9 @@ class FlashCommand(InitCommand):
         return targets
 
     # -----
-    # _set_tunnel_mode
-    # -----
-    def _set_tunnel_mode(self, target: str) -> None:
-        self.write(f"Setting tunnel mode for {target}...")
-        su.set_tunnel_mode(self._device, target, 20)
-        self.overwrite(f"Setting tunnel mode for {target}... <success>✓</success>\n")
-
-    # -----
     # _get_flash_cmd
     # -----
-    def _get_flash_cmd(self, target: str) -> List[str]:
-        if target in cfg.mcuTargets:
-            fwFile = self._get_firmware(target)
-
+    def _get_flash_cmd(self, target: str, fwFile: str) -> List[str]:
         if target == "habs":
             cmd = self._flash_habs(fwFile)
         elif target == "ex":
@@ -146,10 +144,6 @@ class FlashCommand(InitCommand):
             cmd = self._flash_re(fwFile)
         elif target == "mn":
             cmd = self._flash_mn(fwFile)
-        elif target == "bt":
-            cmd = self._flash_bt()
-        elif target == "xbee":
-            cmd = self._flash_xbee()
 
         return cmd
 
@@ -157,7 +151,7 @@ class FlashCommand(InitCommand):
     # _get_firmware
     # -----
     def _get_firmware(self, target: str) -> Path:
-        fwFile = f"{self._device.deviceType}_rigid-{self._device.rigidVersion}_"
+        fwFile = f"{self._device.deviceName}_rigid-{self._device.rigidVersion}_"
         fwFile += f"{target}_{self.option('firmware')}."
         fwFile += f"{cfg.fwExtensions[target]}"
 
@@ -167,27 +161,23 @@ class FlashCommand(InitCommand):
             # posix is because I believe S3 doesn't support windows
             # separators
             fwObj = Path.joinpath(
-                self.option("firmware"), self._device.deviceType, fwFile
+                self.option("firmware"), self._device.deviceName, fwFile
             ).as_posix()
 
             try:
-                self._download(fwObj, cfg.firmwareBucket, dest, cfg.dephyProfile)
+                fxu.download(fwObj, cfg.firmwareBucket, dest, cfg.dephyProfile)
             except (
-                exceptions.NoCredentialsError,
-                exceptions.NoProfileError,
-                exceptions.MissingKeyError,
-                TypeError,
+                bce.ProfileNotFound,
+                bce.PartialCredentialsError,
+                bce.ClientError,
+                bce.EndpointConnectionError,
             ) as err:
                 self.line(err)
                 sys.exit(1)
-
-            if not dest.exists():
-                raise exceptions.FirmwareNotFoundError(
-                    fwObj,
-                    self.option("firmware"),
-                    self._device.deviceType,
-                    target,
-                )
+            except AssertionError as err:
+                raise exceptions.S3DownloadError(
+                    cfg.firmwareBucket, fwObj, dest
+                ) from err
 
         return dest
 
@@ -257,39 +247,6 @@ class FlashCommand(InitCommand):
             "-d",
             "--fn",
             f"{fwFile}",
-        ]
-
-        return cmd
-
-    # -----
-    # _flash_bt
-    # -----
-    def _flash_bt(self) -> List[str]:
-        btImageFile = su.build_bt_image_file(
-            self.option("level"), self.option("address")
-        )
-        cmd = [
-            Path.joinpath(cfg.toolsDir, "stm32flash"),
-            "-w",
-            btImageFile,
-            "-b",
-            "115200",
-            self._device.port,
-        ]
-
-        return cmd
-
-    # -----
-    # _flash_xbee
-    # -----
-    def _flash_xbee(self) -> List[str]:
-        cmd = [
-            "python3",
-            Path.joinpath(cfg.toolsDir, "xb24c.py"),
-            self._device.port,
-            self.option("address"),
-            self.option("buddyAddress"),
-            "upgrade",
         ]
 
         return cmd

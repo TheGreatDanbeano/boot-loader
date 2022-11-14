@@ -3,12 +3,10 @@ import os
 from pathlib import Path
 import shutil
 import subprocess as sub
-from time import sleep
 from typing import Union
 
 from serial.tools.list_ports import comports
 from flexsea.device import Device
-import flexsea.fx_enums as fxe
 
 from bootloader.exceptions import exceptions
 from bootloader.utilities import config as cfg
@@ -17,7 +15,7 @@ from bootloader.utilities import config as cfg
 # ============================================
 #                 find_device
 # ============================================
-def find_device(port: Union[str, None]) -> Device:
+def find_device(port: Union[str, None], cLibVersion: str) -> Device:
     """
     Tries to establish a connection to the Dephy device given by
     the user-supplied port. If no port is supplied, then we loop
@@ -28,6 +26,9 @@ def find_device(port: Union[str, None]) -> Device:
     port : Union[str, None]
         The name of the port to connect to, e.g., '/dev/ttyACM0'. If
         no port is given, we loop over all available serial ports.
+
+    cLibVersion : str
+        The semantic version string of the firmware currently on the device.
 
     Raises
     ------
@@ -44,7 +45,7 @@ def find_device(port: Union[str, None]) -> Device:
 
     if not port:
         for _port in comports():
-            _device = Device(_port.device, 230400)
+            _device = Device(_port.device, 230400, cLibVersion)
             try:
                 _device.open()
             except IOError:
@@ -53,7 +54,7 @@ def find_device(port: Union[str, None]) -> Device:
             break
 
     else:
-        _device = Device(port, 230400)
+        _device = Device(port, 230400, cLibVersion)
         try:
             _device.open()
         except IOError as err:
@@ -64,79 +65,6 @@ def find_device(port: Union[str, None]) -> Device:
         raise exceptions.DeviceNotFoundError()
 
     return device
-
-
-# ============================================
-#               set_tunnel_mode
-# ============================================
-def set_tunnel_mode(device: Device, target: str, timeout: int) -> bool:
-    """
-    Activate the bootloader in `target` and wait until either it's active
-    or `timeout` seconds have passed.
-
-    Parameters
-    ----------
-    device : Device
-        Instance of the Device class representing the device to be flashed.
-
-    target : str
-        The name of the target to set (abbreviated).
-
-    timeout : int
-        The number of seconds to wait for confirmation before failing.
-
-    Raises
-    ------
-    IOError
-        If the device cannot be opened.
-
-    OSError
-        If cannot load the pre-compiled C libraries needed for communication.
-
-    RuntimeError
-        If the application type isn't recognized.
-
-    Returns
-    -------
-    result : bool
-        If `True`, the bootloader was set successfully. If `False` then
-        something went wrong.
-    """
-    result = False
-    wait = 1
-    state = fxe.FAILURE
-
-    if not device.is_open:
-        try:
-            device.open(log_level=0)
-        except (IOError, ValueError, KeyError) as err:
-            raise IOError(f"Failed to open device at {port}") from err
-
-    while timeout > 0 and state != fxe.SUCCESS:
-        if timeout % 5 == 0:
-            try:
-                device.activate_bootloader(target)
-            except (IOError, ValueError, KeyError):
-                pass
-        sleep(wait)
-        timeout -= wait
-
-        try:
-            state = device.is_bootloader_activated()
-        except ValueError as err:
-            raise ValueError(f"Failed to activate bootloader for `{target}`") from err
-        except IOError:
-            pass
-
-    if state == fxe.SUCCESS:
-        result = True
-
-    try:
-        device.close()
-    except ValueError:
-        pass
-
-    return result
 
 
 # ============================================
