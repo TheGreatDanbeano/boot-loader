@@ -61,8 +61,6 @@ mcuTargets = [
     "mn",
 ]
 
-availableTargets = ["mcu", "bt", "xbee"] + mcuTargets
-
 fwExtensions = {"habs": "hex", "ex": "cyacd", "re": "cyacd", "mn": "dfu"}
 
 

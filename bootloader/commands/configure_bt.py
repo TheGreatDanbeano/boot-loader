@@ -18,49 +18,82 @@ from bootloader.utilities import system_utils as su
 # ============================================
 class FlashCommand(InitCommand):
     name = "flash"
-    description = "Flashes firmware onto the microcontrollers of a Dephy device."
-    arguments = [
-        argument("target", "The target to be flashed."),
-        argument("from", "Current firmware's semantic version string, e.g., 7.2.0"),
-        argument("to", "Desired firmware's semantic version string, e.g., 9.1.0")
-        ]
+    description = "Flashes firmware onto a Dephy device."
+    arguments = [argument("target", "The target to be flashed.")]
     options = [
+        option(
+            "from",
+            "-f",
+            "Semantic version string of the firmware currently on the device.",
+            flag=False,
+        ),
+        option(
+            "to",
+            "-t",
+            "Semantic version string of the firmware to flash.",
+            flag=False,
+        ),
+        option(
+            "level",
+            "-l",
+            "The bluetooth level to flash, e.g., `2`.",
+            flag=False,
+            default=2,
+        ),
+        option(
+            "address",
+            "-a",
+            "Bluetooth address of the device.",
+            flag=False,
+        ),
+        option(
+            "buddyAddress",
+            "-b",
+            "Bluetooth address of the device's buddy.",
+            flag=False,
+        ),
         option(
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
         ),
     ]
-    help = """Flashes new firmware onto the microcontrollers of a Dephy device.
-
-    <info>target</info> can be:
+    help = """Meta command for flashing. <info>target</info> can be:
         * mn
         * ex
         * re
         * habs
-        * all (Aggregate option; flashes mn, ex, re, and habs, if applicable)
+        * mcu (Aggregate option; flashes mn, ex, re, and habs, if applicable)
+        * bt (bluetooth)
+        * xbee
 
-    <info>from>/info> refers to the current firmware version on the microcontroller.
-    This is necessary so we know which pre-compiled C libraries to use, since the
-    communication protocol can change between major versions. This should be a
-    semantic version string, e.g., `7.2.0`.
+    If flashing mn, ex, re, or habs, <info>--to</info> refers to the
+    semantic version string of the firmware you'd like to flash, e.g., 7.2.0.
+    The <info>--from</info> option refers to the semantic version string of the
+    firmware that is currently on the device. This is necessary for backwards
+    compatibility.
 
-    <info>to</info> refers to the version of the firmware that you would like to
-    flash onto the microcontroller. This should be a semantic version string, e.g.,
-    `9.1.0`.
+    If flashing `bt`, <info>--level</info> refers to the bluetooth level
+    you'd like to flash, e.g., 2 and <info>--address</info> is the device's
+    bluetooth address.
 
-    <warning>NOTE</warning>: if `target` is `all`, then the current firmware version
-    on each microcontroller is assumed to be the same.
+    If flashing `xbee`, the <info>--address</info> option is the bluetooth
+    address of the current device and the <info>--buddyAddress</info> option
+    is the bluetooth address of the device's companion.
 
     If <info>--port</info> is given then only that port is used. If it is
     not given, then we search through all available COM ports until we
     find a valid Dephy device. For this reason, it is recommended that
-    <warning>only one</warning> device be connected when flashing without
+    <info>only one</info> device be connected when flashing without
     setting this option.
 
     Examples
     --------
-    bootloader flash mn 7.2.0 9.1.0
-    bootloader flash all 8.0.0 7.2.0 -p=/dev/ttyACM0
+    bootloader flash mn -f=7.2.0 --to=9.1.0
+    bootloader flash mcu --from=8.0.0 -t=7.2.0 -p=/dev/ttyACM0
+    bootloader flash bt --level=2 -a=1234
+    bootloader flash xbee -a=1234 -b=5678
     """
+
+    _targets: List[str] = []
 
     # -----
     # handle
@@ -70,22 +103,26 @@ class FlashCommand(InitCommand):
         Entry point for the command.
         """
         try:
-            self._setup(self.option("port"), self.argument("from"))
+            self._setup(self.option("port"))
         except ValueError:
+            sys.exit(1)
+
+        try:
+            self._get_targets()
+        except exceptions.UnknownMCUError as err:
+            self.line(err)
             sys.exit(1)
 
         for target in self._targets:
             try:
-                fwFile = self._get_firmware(target)
-            except exceptions.FirmwareNotFoundError as err:
+                self._set_tunnel_mode(target)
+            except (IOError, OSError, RuntimeError) as err:
                 self.line(err)
                 sys.exit(1)
 
-            cmd = self._get_flash_cmd(target)
-
             try:
-                self._set_tunnel_mode(target)
-            except (IOError, OSError, RuntimeError) as err:
+                cmd = self._get_flash_cmd(target)
+            except exceptions.FirmwareNotFoundError as err:
                 self.line(err)
                 sys.exit(1)
 
@@ -105,23 +142,29 @@ class FlashCommand(InitCommand):
         return 0
 
     # -----
-    # _targets
+    # _get_targets
     # -----
-    @property
-    def _targets(self) -> List[str]:
+    def _get_targets(self) -> None:
         """
         Converts the given target into a list so as to be able to handle
         the `all` case more easily.
         """
-        targets = [self.argument("target"),]
+        try:
+            assert self.argument("target") in cfg.availableTargets
+        except AssertionError as err:
+            raise exceptions.UnknownMCUError(
+                self.argument("target"), cfg.mcuTargets
+            ) from err
 
-        if self.argument("target") == "all":
-            targets = cfg.mcuTargets
+        if self.argument("target") == "mcu":
+            self._targets = cfg.mcuTargets
+        else:
+            self._targets = [
+                self.argument("target"),
+            ]
 
-        if not self._device.hasHabs and "habs" in targets:
-            targets.remove("habs")
-
-        return targets
+        if not self._device.hasHabs and "habs" in self._targets:
+            self._targets.remove("habs")
 
     # -----
     # _set_tunnel_mode
