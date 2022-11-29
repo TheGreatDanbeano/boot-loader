@@ -11,7 +11,7 @@ python = "^3.11"
 cleo = "^0.8.1"
 pyserial = "^3.5"
 boto3 = "^1.25.4"
-flexsea = {path = "/home/latitude/Code/work/flexsea/", develop = true}
+# flexsea = {path = "/home/latitude/Code/work/FlexSEA/Actuator-Package", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.8.0"
