@@ -131,10 +131,13 @@ class InitCommand(Command):
         # In case init is called more than once
         if not self._device:
             try:
+                self.write("Searching for device...")
                 self._device = su.find_device(port, cLibVersion)
             except exceptions.DeviceNotFoundError as err:
                 self.line(err)
                 sys.exit(1)
+            self.overwrite("Searching for device...<success>✓</success>")
+            self.line("Found a {self._device.deviceName} on port {self._device.port}")
 
     # -----
     # _check_os
