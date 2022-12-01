@@ -29,6 +29,7 @@ class FlashCommand(InitCommand):
         option(
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
         ),
+        option("hardware", "-r", "Semantic version string of the board version, e.g., `4.1`.", flag=False),
     ]
     help = """Flashes new firmware onto the microcontrollers of a Dephy device.
 
@@ -57,10 +58,13 @@ class FlashCommand(InitCommand):
     <warning>only one</warning> device be connected when flashing without
     setting this option.
 
+    Currently, the devices do not know their own hardware version, so the `--hardware`
+    option has been introduced as a stop-gap until they do.
+
     Examples
     --------
-    bootloader flash mn 7.2.0 9.1.0
-    bootloader flash all 8.0.0 7.2.0 -p=/dev/ttyACM0
+    bootloader flash mn 7.2.0 9.1.0 -r=4.1
+    bootloader flash all 8.0.0 7.2.0 -p=/dev/ttyACM0 --hardware=4.1B
     """
 
     # -----
@@ -151,7 +155,12 @@ class FlashCommand(InitCommand):
     # _get_firmware
     # -----
     def _get_firmware(self, target: str) -> Path:
-        fwFile = f"{self._device.deviceName}_rigid-{self._device.rigidVersion}_"
+        if self.option("hardware"):
+            rigid = self.option("hardware")
+        else:
+            rigid = self._device.rigidVersion
+
+        fwFile = f"{self._device.deviceName}_rigid-{rigid}_"
         fwFile += f"{target}_{self.option('firmware')}."
         fwFile += f"{cfg.fwExtensions[target]}"
 
