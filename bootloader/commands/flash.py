@@ -170,7 +170,7 @@ class FlashCommand(InitCommand):
             # posix is because I believe S3 doesn't support windows
             # separators
             fwObj = Path.joinpath(
-                self.option("firmware"), self._device.deviceName, fwFile
+                self.option("firmware"), self._device.deviceName, rigid, fwFile
             ).as_posix()
 
             try:
