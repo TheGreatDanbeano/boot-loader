@@ -40,7 +40,7 @@ class FlashCommand(InitCommand):
         * habs
         * all (Aggregate option; flashes mn, ex, re, and habs, if applicable)
 
-    <info>from>/info> refers to the current firmware version on the microcontroller.
+    <info>from</info> refers to the current firmware version on the microcontroller.
     This is necessary so we know which pre-compiled C libraries to use, since the
     communication protocol can change between major versions. This should be a
     semantic version string, e.g., `7.2.0`.
@@ -63,8 +63,8 @@ class FlashCommand(InitCommand):
 
     Examples
     --------
-    bootloader flash mn 7.2.0 9.1.0 -r=4.1
-    bootloader flash all 8.0.0 7.2.0 -p=/dev/ttyACM0 --hardware=4.1B
+    bootloader flash mn 7.2.0 9.1.0 -r 4.1
+    bootloader flash all 8.0.0 7.2.0 -p /dev/ttyACM0 --hardware 4.1B
     """
 
     # -----
@@ -89,6 +89,7 @@ class FlashCommand(InitCommand):
             cmd = self._get_flash_cmd(target, fwFile)
 
             self.write(f"Setting tunnel mode for {target}...")
+            import pdb; pdb.set_trace()
             if not self._device.set_tunnel_mode(target, 20):
                 msg = "\n<error>Error</error>: failed to activate bootloader for: "
                 msg += f"<info>`{target}`</info>"
@@ -161,7 +162,7 @@ class FlashCommand(InitCommand):
             rigid = self._device.rigidVersion
 
         fwFile = f"{self._device.deviceName}_rigid-{rigid}_"
-        fwFile += f"{target}_{self.option('firmware')}."
+        fwFile += f"{target}_firmware-{self.argument('to')}."
         fwFile += f"{cfg.fwExtensions[target]}"
 
         dest = Path(cfg.firmwareDir).joinpath(fwFile)
@@ -169,12 +170,12 @@ class FlashCommand(InitCommand):
         if not dest.exists():
             # posix is because I believe S3 doesn't support windows
             # separators
-            fwObj = Path.joinpath(
-                self.option("firmware"), self._device.deviceName, rigid, fwFile
+            fwObj = Path(self.argument("to")).joinpath(
+                self._device.deviceName, rigid, fwFile
             ).as_posix()
 
             try:
-                fxu.download(fwObj, cfg.firmwareBucket, dest, cfg.dephyProfile)
+                fxu.download(fwObj, cfg.firmwareBucket, str(dest), cfg.dephyProfile)
             except (
                 bce.ProfileNotFound,
                 bce.PartialCredentialsError,

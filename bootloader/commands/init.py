@@ -102,11 +102,11 @@ class InitCommand(Command):
         if not self.confirm(msg, False):
             raise ValueError
 
-        # try:
-        #     self._check_os()
-        # except exceptions.UnsupportedOSError as err:
-        #     self.line(err)
-        #     sys.exit(1)
+        try:
+            self._check_os()
+        except exceptions.UnsupportedOSError as err:
+            self.line(err)
+            sys.exit(1)
 
         self._setup_cache()
 
@@ -293,4 +293,4 @@ class InitCommand(Command):
 
             else:
                 msg = f"Searching for: <info>{tool}</info>...<success>✓</success>\n"
-                self.overwrite(f"{msg}\n")
+                self.overwrite(f"{msg}")
