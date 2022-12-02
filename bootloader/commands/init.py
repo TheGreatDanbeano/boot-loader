@@ -136,8 +136,8 @@ class InitCommand(Command):
             except exceptions.DeviceNotFoundError as err:
                 self.line(err)
                 sys.exit(1)
-            self.overwrite("Searching for device...<success>✓</success>")
-            self.line("Found a {self._device.deviceName} on port {self._device.port}")
+            self.overwrite("Searching for device...<success>✓</success>\n")
+            self.line(f"\tFound a {self._device.deviceName} on port {self._device.port}")
 
     # -----
     # _check_os

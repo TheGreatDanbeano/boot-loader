@@ -89,7 +89,6 @@ class FlashCommand(InitCommand):
             cmd = self._get_flash_cmd(target, fwFile)
 
             self.write(f"Setting tunnel mode for {target}...")
-            import pdb; pdb.set_trace()
             if not self._device.set_tunnel_mode(target, 20):
                 msg = "\n<error>Error</error>: failed to activate bootloader for: "
                 msg += f"<info>`{target}`</info>"
@@ -98,9 +97,23 @@ class FlashCommand(InitCommand):
             self.overwrite(
                 f"Setting tunnel mode for {target}... <success>✓</success>\n"
             )
+            sleep(1)
 
-            with sub.Popen(cmd) as proc:
-                self.write(f"Flashing {target}...")
+            # Before calling the flash command, we have to close our connection
+            # to the serial port so the flash command can use it
+            self._device.close()
+            sleep(1)
+
+            self.overwrite(f"Flashing {target}...")
+            proc = sub.Popen(cmd, stdout=sub.PIPE)
+            try:
+                output, err = proc.communicate(timeout=360)
+            except sub.TimeoutExpired:
+                self.line("<error>Bro, we timed out!</error>")
+                proc.kill()
+                output, err = proc.communicate()
+            # with sub.Popen(cmd) as proc:
+            #     self.write(f"Flashing {target}...")
 
             if proc.returncode == 1:
                 msg = "<error>Error: flashing failed.</error>"
@@ -110,9 +123,12 @@ class FlashCommand(InitCommand):
             _ = self.ask(
                 "<warning>Please power cycle the device, then press `ENTER`</warning>"
             )
+
             sleep(3)
             self.overwrite(f"Flashing {target}... <success>✓</success>\n")
             self.line("\n\n")
+            # Reopen our connection to the device so we can set tunnel mode
+            self._device.open()
 
         return 0
 
