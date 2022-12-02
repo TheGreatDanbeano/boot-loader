@@ -130,6 +130,7 @@ class FlashCommand(InitCommand):
             # Reopen our connection to the device so we can set tunnel mode
             self._device.open()
 
+        self.line("<success>Done!</success>")
         return 0
 
     # -----
