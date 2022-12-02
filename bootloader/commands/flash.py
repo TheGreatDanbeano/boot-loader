@@ -97,12 +97,12 @@ class FlashCommand(InitCommand):
             self.overwrite(
                 f"Setting tunnel mode for {target}... <success>✓</success>\n"
             )
-            sleep(1)
+            sleep(2)
 
             # Before calling the flash command, we have to close our connection
             # to the serial port so the flash command can use it
             self._device.close()
-            sleep(1)
+            sleep(2)
 
             self.write(f"Flashing {target}...")
             proc = sub.Popen(cmd, stdout=sub.PIPE)
