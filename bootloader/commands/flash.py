@@ -104,28 +104,28 @@ class FlashCommand(InitCommand):
             self._device.close()
             sleep(1)
 
-            self.overwrite(f"Flashing {target}...")
+            self.write(f"Flashing {target}...")
             proc = sub.Popen(cmd, stdout=sub.PIPE)
             try:
                 output, err = proc.communicate(timeout=360)
             except sub.TimeoutExpired:
-                self.line("<error>Bro, we timed out!</error>")
+                self.line("\n<error>Error:</error> flash command timed out.")
                 proc.kill()
                 output, err = proc.communicate()
-            # with sub.Popen(cmd) as proc:
-            #     self.write(f"Flashing {target}...")
+                sys.exit(1)
 
             if proc.returncode == 1:
-                msg = "<error>Error: flashing failed.</error>"
+                msg = "\n<error>Error:</error> flashing failed."
                 self.line(msg)
                 sys.exit(1)
+
+            self.overwrite(f"Flashing {target}... <success>✓</success>\n")
 
             _ = self.ask(
                 "<warning>Please power cycle the device, then press `ENTER`</warning>"
             )
 
             sleep(3)
-            self.overwrite(f"Flashing {target}... <success>✓</success>\n")
             self.line("\n\n")
             # Reopen our connection to the device so we can set tunnel mode
             self._device.open()
