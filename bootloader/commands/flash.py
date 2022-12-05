@@ -7,6 +7,7 @@ from typing import List
 import botocore.exceptions as bce
 from cleo.helpers import argument
 from cleo.helpers import option
+from flexsea.device import Device
 import flexsea.utilities as fxu
 
 from bootloader.commands.init import InitCommand
@@ -88,6 +89,22 @@ class FlashCommand(InitCommand):
 
             cmd = self._get_flash_cmd(target, fwFile)
 
+            # The current communication has lots of finnicky timing issues, which
+            # is why there are a bunch of seemingly random sleeps here
+            # Further, when flashing manage, even if the device is closed,
+            # the serial library still throws an exception for some reason
+            # unless we delete the device object. This deletion happens implicitly
+            # in the old bootloader since the device object was created in
+            # the bootloader function and then garbage collected when that script
+            # ended. It can't be deleted for ex and re, though, since those
+            # flash commands need the serial port
+            if target == "mn":
+                _port = self._device.port
+                _baudRate = self._device.baudRate
+                _cLibVersion = self._device.cLibVersion
+                _logLevel = self._device.logLevel
+                _loggingEnabled = self._device.loggingEnabled
+
             self.write(f"Setting tunnel mode for {target}...")
             if not self._device.set_tunnel_mode(target, 20):
                 msg = "\n<error>Error</error>: failed to activate bootloader for: "
@@ -97,11 +114,16 @@ class FlashCommand(InitCommand):
             self.overwrite(
                 f"Setting tunnel mode for {target}... <success>✓</success>\n"
             )
-            sleep(2)
+
+            if target != "mn":
+                sleep(2)
 
             # Before calling the flash command, we have to close our connection
             # to the serial port so the flash command can use it
             self._device.close()
+            if target == "mn":
+                del self._device
+                sleep(8)
             sleep(2)
 
             self.write(f"Flashing {target}...")
@@ -124,10 +146,13 @@ class FlashCommand(InitCommand):
             _ = self.ask(
                 "<warning>Please power cycle the device, then press `ENTER`</warning>"
             )
+            if target == "mn":
+                self._device = Device(_port, _baudRate, _cLibVersion, _logLevel, _loggingEnabled)
 
             sleep(3)
             self.line("\n\n")
             # Reopen our connection to the device so we can set tunnel mode
+            # for the next target
             self._device.open()
 
         self.line("<success>Done!</success>")
