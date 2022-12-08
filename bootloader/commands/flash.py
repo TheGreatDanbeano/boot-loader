@@ -31,6 +31,7 @@ class FlashCommand(InitCommand):
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
         ),
         option("hardware", "-r", "Semantic version string of the board version, e.g., `4.1`.", flag=False),
+        option("firmware", "-f", "Manually specify firmware file location.", flag=False)
     ]
     help = """Flashes new firmware onto the microcontrollers of a Dephy device.
 
@@ -62,6 +63,9 @@ class FlashCommand(InitCommand):
     Currently, the devices do not know their own hardware version, so the `--hardware`
     option has been introduced as a stop-gap until they do.
 
+    The <info>--firmware</info> option allows you to manually specify a firmware file
+    to use.
+
     Examples
     --------
     bootloader flash mn 7.2.0 9.1.0 -r 4.1
@@ -81,11 +85,14 @@ class FlashCommand(InitCommand):
             sys.exit(1)
 
         for target in self._targets:
-            try:
-                fwFile = self._get_firmware(target)
-            except exceptions.FirmwareNotFoundError as err:
-                self.line(err)
-                sys.exit(1)
+            if self.option("firmware"):
+                fwFile = self.option("firmware")
+            else:
+                try:
+                    fwFile = self._get_firmware(target)
+                except exceptions.FirmwareNotFoundError as err:
+                    self.line(err)
+                    sys.exit(1)
 
             cmd = self._get_flash_cmd(target, fwFile)
 
