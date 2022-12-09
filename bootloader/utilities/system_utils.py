@@ -87,7 +87,9 @@ def build_bt_image_file(level: int, address: str) -> Path:
     # self-referencing, so it's easiest to switch to that directory
     # first
     cwd = Path.cwd()
-    os.chdir(Path.joinpath(cfg.toolsDir, "bt121_image_tools"))
+    # When unzipping, the zipped folder gets put into a folder with the same name as
+    # the archive, creating a "nesting" effect
+    os.chdir(Path.joinpath(cfg.toolsDir, "bt121_image_tools", "bt121_image_tools"))
 
     gattTemplate = Path("gatt_files").joinpath(f"{level}.xml")
     gattFile = Path("dephy_gatt_broadcast_bt121").joinpath("gatt.xml")

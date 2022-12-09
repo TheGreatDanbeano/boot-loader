@@ -44,7 +44,7 @@ bootloaderTools = {
         "psocbootloaderhost.exe",
         "bt121_image_tools.zip",
         "DfuSeCommand.exe",
-        "STMFlashLoader.exe",
+        "stm32_flash_loader.zip",
         "stm32flash.exe",
         "XB24C.zip",
     ]

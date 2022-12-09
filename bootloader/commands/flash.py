@@ -31,7 +31,8 @@ class FlashCommand(InitCommand):
             "port", "-p", "Name of the device's port, e.g., '/dev/ttyACM0'", flag=False
         ),
         option("hardware", "-r", "Semantic version string of the board version, e.g., `4.1`.", flag=False),
-        option("firmware", "-f", "Manually specify firmware file location.", flag=False)
+        option("firmware", "-f", "Manually specify firmware file location.", flag=False),
+        option("force-habs", short_name=None, description="Used for when actpack firmware is on an exo.", flag=True),
     ]
     help = """Flashes new firmware onto the microcontrollers of a Dephy device.
 
@@ -131,9 +132,11 @@ class FlashCommand(InitCommand):
             if target == "mn":
                 del self._device
                 sleep(8)
-            sleep(2)
+            if target != "habs":
+                sleep(2)
 
             self.write(f"Flashing {target}...")
+            import pdb; pdb.set_trace()
             proc = sub.Popen(cmd, stdout=sub.PIPE)
             try:
                 output, err = proc.communicate(timeout=360)
@@ -181,8 +184,9 @@ class FlashCommand(InitCommand):
         if self.argument("target") == "all":
             targets = cfg.mcuTargets
 
-        if not self._device.hasHabs and "habs" in targets:
-            targets.remove("habs")
+        if not self.option("force-habs"):
+            if not self._device.hasHabs and "habs" in targets:
+                targets.remove("habs")
 
         return targets
 
@@ -246,10 +250,13 @@ class FlashCommand(InitCommand):
     def _flash_habs(self, fwFile: str | Path) -> List[str]:
 
         cmd = [
-            f"{Path.joinpath(cfg.toolsDir, 'STMFlashLoader.exe')}",
+            # When unzipping, the zipped folder is put into a folder of the same name as the zip
+            # so there is a "nesting" effect
+            f"{Path.joinpath(cfg.toolsDir, 'stm32_flash_loader', 'stm32_flash_loader', 'STMFlashLoader.exe')}",
             "-c",
             "--pn",
-            f"{self._device.port}",
+            # It requires the port number, so if port=COM3, we pass 3
+            f"{self._device.port[-1]}",
             "--br",
             "115200",
             "--db",
