@@ -1,9 +1,12 @@
+from typing import List
 from typing import Self
 
+import boto3
 from cleo import Command
 from cleo.helpers import option
 
 from bootloader.utilities.aws import get_s3_objects
+import bootloader.utilities.config as cfg
 
 
 # ============================================
@@ -11,12 +14,12 @@ from bootloader.utilities.aws import get_s3_objects
 # ============================================
 class ListCommand(Command):
 
-    name = "ls"
+    name = "list"
 
     options = [
         option("devices", "-d", "List devices that can be bootloaded.", flag=True),
         option("hardware", "-r", "List available hardware versions.", flag=True),
-        option("versions", short_name=None, "List firmware versions.", flag=True),
+        option("versions", None, "List firmware versions.", flag=True),
     ]
 
     help = """
@@ -43,7 +46,7 @@ class ListCommand(Command):
         showHardware = self.option("hardware")
         showVersions = self.option("versions")
 
-        _all = not (showDevices and showHardware and showVersions and showTarget)
+        _all = not (showDevices or showHardware or showVersions)
 
         client = boto3.client("s3")
         objects = get_s3_objects(cfg.firmwareBucket, client)
@@ -60,7 +63,7 @@ class ListCommand(Command):
         if _all:
             self._list_all(info)
 
-        return 1
+        return 0
 
     # -----
     # _parse_firmware_objects
@@ -86,12 +89,12 @@ class ListCommand(Command):
         for obj in objects:
             version, device, hardware, _ = obj.split("/")
             if version not in info:
-                info[version] = {hardware : set(device)}
+                info[version] = {hardware : set([device,])}
             else:
                 if hardware not in info[version]:
-                    info[version][hardware] = set(device)
-                    else:
-                        info[version][hardware].add(device)
+                    info[version][hardware] = set([device,])
+                else:
+                    info[version][hardware].add(device)
         return info
 
     # -----
@@ -116,7 +119,7 @@ class ListCommand(Command):
 
         for versionDict in info.values():
             for hw in versionDict:
-                hardware.update(hw)
+                hardware.add(hw)
 
         self.line("Available hardware:")
         for hw in hardware:

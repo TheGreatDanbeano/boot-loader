@@ -19,12 +19,17 @@ def get_s3_objects(bucket: str, client: BaseClient, prefix: str="") -> List:
     prefix : str
         The directory we're looping over. If `""`, then we get the
         top-level directories.
+
+    Returns
+    -------
+    List[str]
+        A list of all the objects in the bucket.
     """
-    objects = client.list_objects_v2(Bucket=bucket, Delimiter="/", prefix=prefix)
+    objectList = []
+    objects = client.list_objects_v2(Bucket=bucket, Delimiter="/", Prefix=prefix)
 
     if "CommonPrefixes" in objects:
-        for prefix in objects["CommonPrefixes"]
-            objects = self._get_s3_objects(bucket, client, prefix["Prefix"])
-    else:
-        # First entry in Contents is directory name, so we skip it
-        return [obj["Key"] for obj in objects["Contents"][1:]]
+        for pre in objects["CommonPrefixes"]:
+            objectList += get_s3_objects(bucket, client, pre["Prefix"])
+
+    return objectList + [obj["Key"] for obj in objects["Contents"][1:]]
