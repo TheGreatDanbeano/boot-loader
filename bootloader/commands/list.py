@@ -16,6 +16,8 @@ class ListCommand(Command):
 
     name = "list"
 
+    description = "Lists firmware, devices, and hardware available for bootloading."
+
     options = [
         option("devices", "-d", "List devices that can be bootloaded.", flag=True),
         option("hardware", "-r", "List available hardware versions.", flag=True),

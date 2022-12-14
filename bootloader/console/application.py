@@ -44,7 +44,7 @@ class BootloaderApplication(Application):
     # constructor
     # -----
     def __init__(self) -> None:
-        super().__init__(config=ApplicationConfig("bootloader", __version__))
+        super().__init__(config=ApplicationConfig("bootload", __version__))
 
         for command in self._get_commands():
             self.add(command())
