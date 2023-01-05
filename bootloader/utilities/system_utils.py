@@ -15,7 +15,7 @@ from bootloader.utilities import config as cfg
 # ============================================
 #                 find_device
 # ============================================
-def find_device(port: Union[str, None], cLibVersion: str) -> Device:
+def find_device(port: Union[str, None], baudRate: int, cLibVersion: str) -> Device:
     """
     Tries to establish a connection to the Dephy device given by
     the user-supplied port. If no port is supplied, then we loop
@@ -45,7 +45,7 @@ def find_device(port: Union[str, None], cLibVersion: str) -> Device:
 
     if not port:
         for _port in comports():
-            _device = Device(_port.device, 230400, cLibVersion)
+            _device = Device(_port.device, baudRate, cLibVersion)
             try:
                 _device.open()
             except IOError:
@@ -54,7 +54,7 @@ def find_device(port: Union[str, None], cLibVersion: str) -> Device:
             break
 
     else:
-        _device = Device(port, 230400, cLibVersion)
+        _device = Device(port, baudRate, cLibVersion)
         try:
             _device.open()
         except IOError as err:
