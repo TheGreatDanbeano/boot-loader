@@ -55,6 +55,7 @@ bootloaderTools = {
 #                 Constants
 # ============================================
 baudRate = 230400
+firmwareExtensions = {"habs": "hex", "ex": "cyacd", "re": "cyacd", "mn": "dfu"}
 supportedOS = [
     "windows",
 ]

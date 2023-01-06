@@ -1,12 +1,16 @@
 from pathlib import Path
 import sys
+from time import sleep
+from typing import List
 from typing import Self
 
-from cleo import Command
+from cleo.commands.command import Command
 from cleo.helpers import option
 from flexsea.device import Device
-from flexsea.utilities.system_utils import download
-from flexsea.utilities.system_utils import find_device
+from flexsea.utilities import download
+from flexsea.utilities import find_port
+
+import bootloader.utilities.config as cfg
 
 
 # ============================================
@@ -21,6 +25,7 @@ class BaseFlashCommand(Command):
         option("file", "-f", "Path to the firmware file.", flag=False),
         option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
         option("interactive", "-i", "Guided tour through bootloading.", flag=True),
+        option("baudRate", "-b", "Device baud rate.", flag=False, default=230400),
     ]
 
     _device: None | Device = None
@@ -31,8 +36,20 @@ class BaseFlashCommand(Command):
     # setup
     # -----
     def setup(self: Self, target: str) -> None:
-        self.call(["init",])
-        self._device = find_device(self.option("port"), self.option("from"))
+        self.call(
+            [
+                "init",
+            ]
+        )
+
+        port = self.option("port")
+        br = int(self.option("baudRate"))
+        cv = self.option("from")
+
+        if not port:
+            port = find_port(br, cv)
+
+        self._device = Device(port, br, cv)
         self._fwFile = self._build_firmware_file(target)
 
     # -----
@@ -70,6 +87,12 @@ class BaseFlashCommand(Command):
             self.line(msg)
             sys.exit(1)
 
-        self.overwrite(
-            f"Setting tunnel mode for {target}... <success>✓</success>\n"
-        )
+        self.overwrite(f"Setting tunnel mode for {target}... <success>✓</success>\n")
+
+        sleep(3)
+
+    # -----
+    # handle
+    # -----
+    def handle(self) -> None:
+        raise NotImplementedError

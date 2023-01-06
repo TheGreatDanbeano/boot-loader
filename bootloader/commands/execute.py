@@ -10,19 +10,19 @@ from .base_command import BaseFlashCommand
 
 
 # ============================================
-#             FlashManageCommand
+#             FlashExecuteCommand
 # ============================================
-class FlashManageCommand(BaseFlashCommand):
-    name = "mn"
-    description = "Flashes new firmware onto Manage."
+class FlashExecuteCommand(BaseFlashCommand):
+    name = "ex"
+    description = "Flashes new firmware onto Execute."
     help = """
-    Flashes new firmware onto Manage.
+    Flashes new firmware onto Execute.
 
     Examples
     --------
-    > bootload mn --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
+    > bootload ex --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
     """
-    _target: str = "mn"
+    _target: str = "ex"
 
     # -----
     # handle
@@ -40,10 +40,8 @@ class FlashManageCommand(BaseFlashCommand):
     # -----
     def _build_flash_command(self: Self) -> None:
         self._flashCmd = [
-            f"{Path(cfg.toolsDir).joinpath('DfuSeCommand.exe')}",
-            "-c",
-            "-d",
-            "--fn",
+            f"{Path.joinpath(cfg.toolsDir, 'psocbootloaderhost.exe')}",
+            f"{self._device.port}",
             f"{self._fwFile}",
         ]
 
@@ -53,11 +51,8 @@ class FlashManageCommand(BaseFlashCommand):
     def _flash(self: Self) -> None:
         self.write(f"Flashing {self._target}...")
 
-        # Before calling the flash command, we have to close our connection
-        # to the serial port so the flash command can use it
         self._device.close()
         del self._device
-        sleep(10)
 
         with sub.Popen(self._flashCmd, stdout=sub.PIPE) as proc:
             try:
@@ -74,5 +69,7 @@ class FlashManageCommand(BaseFlashCommand):
                 msg = "\n<error>Error:</error> flashing failed."
                 self.line(msg)
                 sys.exit(1)
+
+        sleep(20)
 
         self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")

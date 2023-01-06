@@ -1,35 +1,15 @@
 from typing import List
 
-from cleo import Application
-from cleo import Command
-from cleo.config import ApplicationConfig as BaseApplicationConfig
-from clikit.api.formatter import Style
+from cleo.application import Application
+from cleo.commands.command import Command
+from cleo.formatters.style import Style
 
 from bootloader import __version__
+from bootloader.commands.execute import FlashExecuteCommand
+from bootloader.commands.habs import FlashHabsoluteCommand
+from bootloader.commands.manage import FlashManageCommand
+from bootloader.commands.regulate import FlashRegulateCommand
 from bootloader.commands.list import ListCommand
-
-
-# ============================================
-#              ApplicationConfig
-# ============================================
-class ApplicationConfig(BaseApplicationConfig):
-    """
-    Controls the configuration and styling of the CLI object.
-    """
-
-    # -----
-    # configure
-    # -----
-    def configure(self) -> None:
-        """
-        Sets the color of various message types.
-        """
-        super().configure()
-
-        self.add_style(Style("info").fg("cyan"))
-        self.add_style(Style("error").fg("red").bold())
-        self.add_style(Style("warning").fg("yellow").bold())
-        self.add_style(Style("success").fg("green"))
 
 
 # ============================================
@@ -44,10 +24,38 @@ class BootloaderApplication(Application):
     # constructor
     # -----
     def __init__(self) -> None:
-        super().__init__(config=ApplicationConfig("bootload", __version__))
+        super().__init__("bootload", __version__)
+
+        self._configure_app()
 
         for command in self._get_commands():
             self.add(command())
+
+    # -----
+    # _configure_app
+    # -----
+    def _configure_app(self) -> None:
+        io = super().create_io(None, None, None)
+
+        # Set our own CLI styles
+        formatter = io.output.formatter
+        formatter.set_style("c1", Style("cyan"))
+        formatter.set_style("c2", Style("default", options=["bold"]))
+        formatter.set_style("info", Style("blue"))
+        formatter.set_style("comment", Style("green"))
+        formatter.set_style("warning", Style("yellow"))
+        formatter.set_style("debug", Style("default", options=["dark"]))
+        formatter.set_style("success", Style("green"))
+
+        # Dark variants
+        formatter.set_style("c1_dark", Style("cyan", options=["dark"]))
+        formatter.set_style("c2_dark", Style("default", options=["bold", "dark"]))
+        formatter.set_style("success_dark", Style("green", options=["dark"]))
+
+        io.output.set_formatter(formatter)
+        io.error_output.set_formatter(formatter)
+
+        self._io = io
 
     # -----
     # _get_commands
@@ -63,6 +71,10 @@ class BootloaderApplication(Application):
             A list of commands available to the CLI.
         """
         commandList = [
+            FlashExecuteCommand,
+            FlashHabsoluteCommand,
+            FlashManageCommand,
+            FlashRegulateCommand,
             ListCommand,
         ]
 

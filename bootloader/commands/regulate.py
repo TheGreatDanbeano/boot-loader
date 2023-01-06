@@ -1,7 +1,6 @@
 from pathlib import Path
 import subprocess as sub
 import sys
-from time import sleep
 from typing import Self
 
 import bootloader.utilities.config as cfg
@@ -10,19 +9,19 @@ from .base_command import BaseFlashCommand
 
 
 # ============================================
-#             FlashManageCommand
+#             FlashRegulateCommand
 # ============================================
-class FlashManageCommand(BaseFlashCommand):
-    name = "mn"
-    description = "Flashes new firmware onto Manage."
+class FlashRegulateCommand(BaseFlashCommand):
+    name = "re"
+    description = "Flashes new firmware onto Regulate."
     help = """
-    Flashes new firmware onto Manage.
+    Flashes new firmware onto Regulate.
 
     Examples
     --------
-    > bootload mn --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
+    > bootload re --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
     """
-    _target: str = "mn"
+    _target: str = "re"
 
     # -----
     # handle
@@ -40,10 +39,8 @@ class FlashManageCommand(BaseFlashCommand):
     # -----
     def _build_flash_command(self: Self) -> None:
         self._flashCmd = [
-            f"{Path(cfg.toolsDir).joinpath('DfuSeCommand.exe')}",
-            "-c",
-            "-d",
-            "--fn",
+            f"{Path.joinpath(cfg.toolsDir, 'psocbootloaderhost.exe')}",
+            f"{self._device.port}",
             f"{self._fwFile}",
         ]
 
@@ -53,11 +50,8 @@ class FlashManageCommand(BaseFlashCommand):
     def _flash(self: Self) -> None:
         self.write(f"Flashing {self._target}...")
 
-        # Before calling the flash command, we have to close our connection
-        # to the serial port so the flash command can use it
         self._device.close()
         del self._device
-        sleep(10)
 
         with sub.Popen(self._flashCmd, stdout=sub.PIPE) as proc:
             try:

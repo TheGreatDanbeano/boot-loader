@@ -7,19 +7,21 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
-# flexsea = {path = "/home/latitude/Code/work/FlexSEA/Actuator-Package", develop = true}
+python = "^3.11.0rc1"
+flexsea = {path = "/home/latitude/Code/work/FlexSEA/Actuator-Package", develop = true}
 cleo = "^2.0.1"
 pyserial = "^3.5"
 boto3 = "^1.26.44"
 
 [tool.poetry.group.dev.dependencies]
-black = "^22.8.0"
-pylint = "^2.15.4"
-mypy = "^0.982"
-nox = "^2022.8.7"
+black = "^22.12.0"
+pylint = "^2.15.9"
+mypy = "^0.991"
+nox = "^2022.11.21"
 pytest = "^7.2.0"
-ipython = "^8.6.0"
+ipython = "^8.8.0"
+wrapt = "^1.14.1"
+dill = "^0.3.6"
 
 [build-system]
 requires = ["poetry-core"]

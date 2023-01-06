@@ -2,7 +2,7 @@ from typing import List
 from typing import Self
 
 import boto3
-from cleo import Command
+from cleo.commands.command import Command
 from cleo.helpers import option
 
 from bootloader.utilities.aws import get_s3_objects
@@ -91,10 +91,20 @@ class ListCommand(Command):
         for obj in objects:
             version, device, hardware, _ = obj.split("/")
             if version not in info:
-                info[version] = {hardware : set([device,])}
+                info[version] = {
+                    hardware: set(
+                        [
+                            device,
+                        ]
+                    )
+                }
             else:
                 if hardware not in info[version]:
-                    info[version][hardware] = set([device,])
+                    info[version][hardware] = set(
+                        [
+                            device,
+                        ]
+                    )
                 else:
                     info[version][hardware].add(device)
         return info

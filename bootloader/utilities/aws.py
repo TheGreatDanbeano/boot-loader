@@ -3,7 +3,7 @@ from typing import List
 from botocore.client import BaseClient
 
 
-def get_s3_objects(bucket: str, client: BaseClient, prefix: str="") -> List:
+def get_s3_objects(bucket: str, client: BaseClient, prefix: str = "") -> List:
     """
     Recursively loops over all directories in a bucket and returns a
     list of files.

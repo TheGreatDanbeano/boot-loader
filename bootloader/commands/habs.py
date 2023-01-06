@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess as sub
 import sys
 from time import sleep
@@ -10,19 +11,19 @@ from .base_command import BaseFlashCommand
 
 
 # ============================================
-#             FlashManageCommand
+#             FlashHabsoluteCommand
 # ============================================
-class FlashManageCommand(BaseFlashCommand):
-    name = "mn"
-    description = "Flashes new firmware onto Manage."
+class FlashHabsoluteCommand(BaseFlashCommand):
+    name = "habs"
+    description = "Flashes new firmware onto Habsolute."
     help = """
-    Flashes new firmware onto Manage.
+    Flashes new firmware onto Habsolute.
 
     Examples
     --------
-    > bootload mn --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
+    > bootload habs --from 7.2.0 --to 9.1.0 -r 4.1B -d actpack
     """
-    _target: str = "mn"
+    _target: str = "habs"
 
     # -----
     # handle
@@ -39,12 +40,37 @@ class FlashManageCommand(BaseFlashCommand):
     # _build_flash_command
     # -----
     def _build_flash_command(self: Self) -> None:
+        cmd = Path.joinpath(
+            cfg.toolsDir,
+            "stm32_flash_loader",
+            "stm32_flash_loader",
+            "STMFlashLoader.exe",
+        )
+        portNum = re.search(r"\d+$", self._device.port).group(0)
+
         self._flashCmd = [
-            f"{Path(cfg.toolsDir).joinpath('DfuSeCommand.exe')}",
+            f"{cmd}",
             "-c",
+            "--pn",
+            f"{portNum}",
+            "--br",
+            "115200",
+            "--db",
+            "8",
+            "--pr",
+            "NONE",
+            "-i",
+            "STM32F3_7x_8x_256K",
+            "-e",
+            "--all",
             "-d",
             "--fn",
             f"{self._fwFile}",
+            "-o",
+            "--set",
+            "--vals",
+            "--User",
+            "0xF00F",
         ]
 
     # -----
@@ -53,11 +79,10 @@ class FlashManageCommand(BaseFlashCommand):
     def _flash(self: Self) -> None:
         self.write(f"Flashing {self._target}...")
 
-        # Before calling the flash command, we have to close our connection
-        # to the serial port so the flash command can use it
         self._device.close()
         del self._device
-        sleep(10)
+
+        sleep(3)
 
         with sub.Popen(self._flashCmd, stdout=sub.PIPE) as proc:
             try:
@@ -74,5 +99,7 @@ class FlashManageCommand(BaseFlashCommand):
                 msg = "\n<error>Error:</error> flashing failed."
                 self.line(msg)
                 sys.exit(1)
+
+        sleep(20)
 
         self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
