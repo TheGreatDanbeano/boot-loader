@@ -2,17 +2,18 @@ from typing import List
 from typing import Self
 
 import boto3
-from cleo.commands.command import Command
 from cleo.helpers import option
 
 from bootloader.utilities.aws import get_s3_objects
 import bootloader.utilities.config as cfg
 
+from .base_command import BaseCommand
+
 
 # ============================================
 #                 ListCommand
 # ============================================
-class ListCommand(Command):
+class ListCommand(BaseCommand):
 
     name = "list"
 
@@ -44,6 +45,8 @@ class ListCommand(Command):
         """
         Entry point for the command.
         """
+        self.setup()
+
         showDevices = self.option("devices")
         showHardware = self.option("hardware")
         showVersions = self.option("versions")
@@ -152,6 +155,6 @@ class ListCommand(Command):
         for version in info:
             self.line(f"<info>Version</info>: {version}")
             for hw, devices in info[version].items():
-                self.line(f"\t<info>Hardware</info> {hw}")
+                self.line(f"{self._pad}<info>Hardware</info> {hw}")
                 for device in devices:
-                    self.line(f"\t\t- <warning>{device}</warning>")
+                    self.line(f"{self._pad}{self._pad}- <warning>{device}</warning>")

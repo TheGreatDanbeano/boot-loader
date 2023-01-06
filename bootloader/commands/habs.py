@@ -7,7 +7,7 @@ from typing import Self
 
 import bootloader.utilities.config as cfg
 
-from .base_command import BaseFlashCommand
+from .base_flash_command import BaseFlashCommand
 
 
 # ============================================
@@ -29,7 +29,7 @@ class FlashHabsoluteCommand(BaseFlashCommand):
     # handle
     # -----
     def handle(self: Self) -> int:
-        self.setup(self._target)
+        self.prep_device(self._target)
         self._build_flash_command()
         self._set_tunnel_mode(self._target)
         self._flash()
