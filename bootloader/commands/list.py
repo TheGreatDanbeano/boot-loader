@@ -7,13 +7,13 @@ from cleo.helpers import option
 from bootloader.utilities.aws import get_s3_objects
 import bootloader.utilities.config as cfg
 
-from .base_command import BaseCommand
+from .init import InitCommand
 
 
 # ============================================
 #                 ListCommand
 # ============================================
-class ListCommand(BaseCommand):
+class ListCommand(InitCommand):
 
     name = "list"
 
@@ -45,7 +45,8 @@ class ListCommand(BaseCommand):
         """
         Entry point for the command.
         """
-        self.setup()
+        self._stylize()
+        self._setup()
 
         showDevices = self.option("devices")
         showHardware = self.option("hardware")

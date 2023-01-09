@@ -3,8 +3,10 @@ from pathlib import Path
 import platform
 import sys
 import tempfile
+from typing import Self
 import zipfile
 
+from cleo.commands.command import Command
 import botocore.exceptions as bce
 import flexsea.utilities as fxu
 
@@ -12,13 +14,11 @@ from bootloader.exceptions import exceptions
 import bootloader.utilities.config as cfg
 from bootloader.utilities import logo
 
-from .base_command import BaseCommand
-
 
 # ============================================
 #                 InitCommand
 # ============================================
-class InitCommand(BaseCommand):
+class InitCommand(Command):
 
     name = "init"
 
@@ -36,6 +36,8 @@ class InitCommand(BaseCommand):
         bootloader init
     """
 
+    _pad: str = "    "
+
     # -----
     # handle
     # -----
@@ -44,7 +46,23 @@ class InitCommand(BaseCommand):
         Entry point for the command.
         """
         self._stylize()
+        self._setup()
 
+        return 0
+
+    # -----
+    # _styleize
+    # -----
+    def _stylize(self: Self) -> None:
+        self.add_style("info", fg="blue")
+        self.add_style("warning", fg="yellow")
+        self.add_style("error", fg="red")
+        self.add_style("success", fg="green")
+
+    # -----
+    # _setup
+    # -----
+    def _setup(self) -> None:
         try:
             self.line(logo.dephyLogo)
         except UnicodeEncodeError:
@@ -82,8 +100,6 @@ class InitCommand(BaseCommand):
         except (bce.EndpointConnectionError, exceptions.S3DownloadError) as err:
             self.line(err)
             sys.exit(1)
-
-        return 0
 
     # -----
     # _check_os
