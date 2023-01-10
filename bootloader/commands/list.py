@@ -46,7 +46,7 @@ class ListCommand(InitCommand):
         Entry point for the command.
         """
         self._stylize()
-        self._setup()
+        self._check_keys()
 
         showDevices = self.option("devices")
         showHardware = self.option("hardware")
