@@ -70,11 +70,6 @@ class InitCommand(Command):
 
         self.line("Welcome to the Dephy bootloader!")
 
-        msg = "<warning>Please make sure the battery is removed "
-        msg += "and/or the power supply is disconnected!</warning>"
-        if not self.confirm(msg, False):
-            sys.exit(1)
-
         try:
             self._check_os()
         except exceptions.UnsupportedOSError as err:

@@ -69,6 +69,11 @@ class FlashMicrocontrollerCommand(InitCommand):
         self._stylize()
         self._setup()
 
+        msg = "<warning>Please make sure the battery is removed "
+        msg += "and/or the power supply is disconnected!</warning>"
+        if not self.confirm(msg, False):
+            sys.exit(1)
+
         self._target = self.argument("target")
         assert self._target in cfg.microcontrollers
 

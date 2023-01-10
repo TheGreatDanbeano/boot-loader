@@ -54,7 +54,8 @@ class ListCommand(InitCommand):
 
         _all = not (showDevices or showHardware or showVersions)
 
-        client = boto3.client("s3")
+        session = boto3.Session(profile_name=cfg.dephyProfile)
+        client = session.client("s3")
         objects = get_s3_objects(cfg.firmwareBucket, client)
         client.close()
 
