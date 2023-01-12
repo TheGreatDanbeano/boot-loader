@@ -36,6 +36,7 @@ class FlashMicrocontrollerCommand(InitCommand):
         option("file", "-f", "Path to the firmware file.", flag=False),
         option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
         option("interactive", "-i", "Guided tour through bootloading.", flag=True),
+        option("side", "-s", "Either left or right.", flag=False),
         option("baudRate", "-b", "Device baud rate.", flag=False, default=230400),
     ]
 
@@ -50,6 +51,8 @@ class FlashMicrocontrollerCommand(InitCommand):
     _device: None | Device = None
     _fwFile: str = ""
     _flashCmd: List[str] = []
+    _nRetries: int = 5
+    _port: str = ""
     _target: str = ""
 
     # -----
@@ -79,12 +82,18 @@ class FlashMicrocontrollerCommand(InitCommand):
 
         port = self.option("port")
         br = int(self.option("baudRate"))
-        cv = self.option("from")
+        if self.option("from"):
+            cv = self.option("from")
+        else:
+            raise RuntimeError("Must provide from version.")
 
         if not port:
             port = find_port(br, cv)
 
         self._device = Device(port, br, cv)
+        self._device.open()
+        # Still need access to the port after the device has been deleted
+        self._port = port
         self._fwFile = self._build_firmware_file()
 
     # -----
@@ -94,12 +103,33 @@ class FlashMicrocontrollerCommand(InitCommand):
         if self.option("file"):
             return self.option("file")
 
-        _name = self._device.deviceName
-        hw = self.option("hardware")
-        fw = self.option("to")
+        if self.option("device"):
+            _name = self.option("device")
+        else:
+            _name = self._device.deviceName
+
+        if self.option("hardware"):
+            hw = self.option("hardware")
+        else:
+            raise RuntimeError("Must provide hardware.")
+
+        if self.option("to"):
+            fw = self.option("to")
+        else:
+            raise RuntimeError("Must provide to version.")
+
         ext = cfg.firmwareExtensions[self._target]
 
-        fwFile = f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}.{ext}"
+        # Legacy devices don't know their side (left or right)
+        if self._target == "mn" and _name != "actpack":
+            if self.option("side"):
+                side = self.option("side")
+            else:
+                raise RuntimeError("Must provide side information.")
+            fwFile = f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}_side-{side}.{ext}"
+
+        else:
+            fwFile = f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}.{ext}"
 
         dest = Path(cfg.firmwareDir).joinpath(fwFile)
 
@@ -122,31 +152,50 @@ class FlashMicrocontrollerCommand(InitCommand):
             self.line(msg)
             sys.exit(1)
 
+        # The serial library complains when trying to flash if the port is
+        # in use by the device. For some reason, closing the device is not
+        # enough
+        # self._device.close()
+        # del self._device
+
+        # sleep(3)
+
         self.overwrite(
             f"Setting tunnel mode for {self._target}... <success>✓</success>\n"
         )
-
-        sleep(3)
 
     # -----
     # _call_flash_tool
     # -----
     def _call_flash_tool(self: Self) -> None:
-        with sub.Popen(self._flashCmd, stdout=sub.PIPE) as proc:
+        for _ in range(self._nRetries):
             try:
-                output, err = proc.communicate(timeout=360)
+                proc = sub.run(self._flashCmd, capture_output=False, check=True, timeout=360)
+            except sub.CalledProcessError:
+                continue
             except sub.TimeoutExpired:
-                self.line("\n<error>Error:</error> flash command timed out.")
-                proc.kill()
-                output, err = proc.communicate()
-                self.line(output)
-                self.line(err)
+                self.line("Timeout.")
                 sys.exit(1)
-
-            if proc.returncode == 1:
-                msg = "\n<error>Error:</error> flashing failed."
-                self.line(msg)
-                sys.exit(1)
+            if proc.returncode == 0:
+                break
+        if proc.returncode != 0:
+            self.line("Error.")
+            sys.exit(1)
+        # with sub.Popen(self._flashCmd, stdout=sub.PIPE, stderr=sub.PIPE) as proc:
+        #     try:
+        #         output, err = proc.communicate(timeout=360)
+        #     except sub.TimeoutExpired:
+        #         self.line("\n<error>Error:</error> flash command timed out.")
+        #         proc.kill()
+        #         output, err = proc.communicate()
+        #         self.line(output)
+        #         self.line(err)
+        #         sys.exit(1)
+        #
+        #     if proc.returncode != 0:
+        #         msg = "\n<error>Error:</error> flashing failed."
+        #         self.line(msg)
+        #         sys.exit(1)
 
     # -----
     # _flash
@@ -154,21 +203,80 @@ class FlashMicrocontrollerCommand(InitCommand):
     def _flash(self: Self) -> None:
         self.write(f"Flashing {self._target}...")
 
-        self._device.close()
-        del self._device
-
-        if self._target == "habs":
+        # WORKS
+        if self._target == "mn":
+            self._device.close()
+            del self._device
             sleep(3)
-
-        elif self._target == "mn":
             sleep(10)
+            self._call_flash_tool()
+            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-        self._call_flash_tool()
-
-        if self._target in ("ex", "habs"):
+        # WORKS
+        elif self._target == "ex":
+            sleep(2)
+            self._device.close()
+            sleep(2)
+            self._call_flash_tool()
             sleep(20)
+            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-        self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
+        # WORKS
+        elif self._target == "re":
+            sleep(3)
+            self._device.close()
+            self._call_flash_tool()
+            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
+
+        # WORKS
+        elif self._target == "habs":
+            self._device.close()
+            sleep(6)
+            self._call_flash_tool()
+            sleep(20)
+            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
+
+
+
+
+
+
+
+        # if self._target != "mn":
+        #     sleep(2)
+        #
+        # self._device.close()
+        #
+        # if self._target == "mn":
+        #     del self._device
+        #     sleep(8)
+        #
+        # if self._target != "habs":
+        #     sleep(2)
+        #
+        # self._call_flash_tool()
+        #
+        # if self._target in ("ex", "habs"):
+        #     sleep(20)
+
+
+
+
+
+        # self.write(f"Flashing {self._target}...")
+
+        # if self._target == "habs":
+        #     sleep(3)
+        #
+        # elif self._target == "mn":
+        #     sleep(10)
+        #
+        # self._call_flash_tool()
+        #
+        # if self._target in ("ex", "habs"):
+        #     sleep(20)
+        #
+        # self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
     # -----
     # _flashCmd
@@ -187,7 +295,7 @@ class FlashMicrocontrollerCommand(InitCommand):
         elif self._target in ("ex", "re"):
             flashCmd = [
                 f"{Path.joinpath(cfg.toolsDir, 'psocbootloaderhost.exe')}",
-                f"{self._device.port}",
+                f"{self._port}",
                 f"{self._fwFile}",
             ]
 
@@ -198,7 +306,7 @@ class FlashMicrocontrollerCommand(InitCommand):
                 "stm32_flash_loader",
                 "STMFlashLoader.exe",
             )
-            portNum = re.search(r"\d+$", self._device.port).group(0)
+            portNum = re.search(r"\d+$", self._port).group(0)
 
             flashCmd = [
                 f"{cmd}",
