@@ -126,7 +126,9 @@ class FlashMicrocontrollerCommand(InitCommand):
                 side = self.option("side")
             else:
                 raise RuntimeError("Must provide side information.")
-            fwFile = f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}_side-{side}.{ext}"
+            fwFile = (
+                f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}_side-{side}.{ext}"
+            )
 
         else:
             fwFile = f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}.{ext}"
@@ -152,14 +154,6 @@ class FlashMicrocontrollerCommand(InitCommand):
             self.line(msg)
             sys.exit(1)
 
-        # The serial library complains when trying to flash if the port is
-        # in use by the device. For some reason, closing the device is not
-        # enough
-        # self._device.close()
-        # del self._device
-
-        # sleep(3)
-
         self.overwrite(
             f"Setting tunnel mode for {self._target}... <success>✓</success>\n"
         )
@@ -170,7 +164,9 @@ class FlashMicrocontrollerCommand(InitCommand):
     def _call_flash_tool(self: Self) -> None:
         for _ in range(self._nRetries):
             try:
-                proc = sub.run(self._flashCmd, capture_output=False, check=True, timeout=360)
+                proc = sub.run(
+                    self._flashCmd, capture_output=False, check=True, timeout=360
+                )
             except sub.CalledProcessError:
                 continue
             except sub.TimeoutExpired:
@@ -181,21 +177,6 @@ class FlashMicrocontrollerCommand(InitCommand):
         if proc.returncode != 0:
             self.line("Error.")
             sys.exit(1)
-        # with sub.Popen(self._flashCmd, stdout=sub.PIPE, stderr=sub.PIPE) as proc:
-        #     try:
-        #         output, err = proc.communicate(timeout=360)
-        #     except sub.TimeoutExpired:
-        #         self.line("\n<error>Error:</error> flash command timed out.")
-        #         proc.kill()
-        #         output, err = proc.communicate()
-        #         self.line(output)
-        #         self.line(err)
-        #         sys.exit(1)
-        #
-        #     if proc.returncode != 0:
-        #         msg = "\n<error>Error:</error> flashing failed."
-        #         self.line(msg)
-        #         sys.exit(1)
 
     # -----
     # _flash
@@ -203,80 +184,32 @@ class FlashMicrocontrollerCommand(InitCommand):
     def _flash(self: Self) -> None:
         self.write(f"Flashing {self._target}...")
 
-        # WORKS
         if self._target == "mn":
             self._device.close()
             del self._device
             sleep(3)
             sleep(10)
             self._call_flash_tool()
-            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-        # WORKS
         elif self._target == "ex":
             sleep(2)
             self._device.close()
             sleep(2)
             self._call_flash_tool()
             sleep(20)
-            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-        # WORKS
         elif self._target == "re":
             sleep(3)
             self._device.close()
             self._call_flash_tool()
-            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-        # WORKS
         elif self._target == "habs":
             self._device.close()
             sleep(6)
             self._call_flash_tool()
             sleep(20)
-            self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
-
-
-
-
-
-
-        # if self._target != "mn":
-        #     sleep(2)
-        #
-        # self._device.close()
-        #
-        # if self._target == "mn":
-        #     del self._device
-        #     sleep(8)
-        #
-        # if self._target != "habs":
-        #     sleep(2)
-        #
-        # self._call_flash_tool()
-        #
-        # if self._target in ("ex", "habs"):
-        #     sleep(20)
-
-
-
-
-
-        # self.write(f"Flashing {self._target}...")
-
-        # if self._target == "habs":
-        #     sleep(3)
-        #
-        # elif self._target == "mn":
-        #     sleep(10)
-        #
-        # self._call_flash_tool()
-        #
-        # if self._target in ("ex", "habs"):
-        #     sleep(20)
-        #
-        # self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
+        self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
     # -----
     # _flashCmd
