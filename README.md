@@ -1,11 +1,11 @@
-# Bootloader
+# Dephy Bootloader
 
 This is a tool for loading firmware onto Dephy's devices.
 
 
 ## Installation
 
-It is highly recommended, but not required, that you install `flexsea` in a virtual
+It is **highly recommended**, but not required, that you install `flexsea` in a virtual
 environment. This helps keep your python and associated packages sandboxed from the
 rest of your system and, potentially, other versions of the same packages required by
 `flexsea`.
@@ -49,86 +49,58 @@ python3 -m pip install dephy-bootloader
 
 ## Usage
 
-This package provides the `bootloader` command-line tool. To see the available commands,
-simply run `bootloader --help`. Additionally, each subcommand has a `--help` option
+This package provides the `bootload` command-line tool. To see the available commands,
+simply run `bootload --help`. Additionally, each subcommand has a `--help` option
 that will give you more information on its usage.
 
-The three main commands of interest are: `flash`, `configure-bt`, and `configure-xbee`.
+The main commands of interest are:  `microcontroller`, `bt121`, `xbee`, and `list`.
 
-### Flash
+### Microcontroller
 
-The `flash` command is used for updating the firmware on Manage, Execute, Regulate, and
-Habsolute. The usage pattern is:
+The `microcontroller` command is used for updating the firmware on Manage, Execute,
+Regulate, and Habsolute. The usage pattern is:
 
 ```bash
-bootloader flash <target> <from> <to> [--port|-p=<port name>]
+bootload microcontroller <target> [options]
 ```
 
-The CLI will first check to make sure that you have all of the required tools needed
-to update the firmware. If you do not, then it will download them for you.
-
-`target` is the microcontroller you want to flash. It can be:
+`target` is the microcontroller you want to bootload. It can be:
     * `mn`
     * `ex`
     * `re`
     * `habs`
-    * `all`
 
-If `all` is selected, the command will flash `mn`, `ex`, `re`, and `habs`, if applicable.
+The available options are:
+    * `--from` : The semantic version string of the firmware currently on the device. This is not required for devices running version "10.0.0" or higher. If not given, but needed, the bootloader will prompt you for this information.
+    * `--to` : The semantic version string of the firmware you'd like to bootload onto the device. If not given, the bootloader will prompt you to enter this information.
+    * `--hardware` : The version of the device's rigid board. This is not needed for devices running version "10.0.0" or higher. If not given, but needed, the bootloader will prompt you for this information.
+    * `--port` : The name of the serial port the device is connected to, e.g., "COM3" or "/dev/ttyACM0". If this is not given, the bootloader will attempt to find the device automatically.
+    * `--file` : If you'd like to manually specify the firmware file to bootload, this is the option for you. If the file is not found locally in the `~/.dephy/bootloader/firmware` directory, then the `dephy-firmware` bucket on S3 will be searched and the file downloaded, if found.
+    * `--device` : The name of the device being bootloaded, e.g., "actpack" or "eb60". This is not needed if the device is running version "10.0.0" or higher. If not given, but needed, the bootloader will prompt you for this information.
+    * `--side` : When bootloading "Mn" for a device with chirality, this allows you to specify either "left" or "right". This is not needed if the device is running version "10.0.0" or higher. If not given, but needed, the bootloader will prompt you for this information.
+    * `--baudRate` : Allows you to specify the baud rate used for communicating with the device. This is only needed if the required baud rate is different than the default value of `230400`.
 
-`from` is the semantic version string of the firmware that is currently on the target,
-e.g., `7.2.0`. The reason this is needed is so that the correct version of the
-pre-compiled C++ libraries used for communicating with the device can be downloaded
-and used.
+The bootloader will check to make sure that you have all of the required tools needed to update the firmware. If you do not, then it will download them for you.
 
-`to` is the semantic version string of the firmware you'd like to flash onto the
-microcontroller, e.g., `9.1.0`.
-
-If the `to` and/or `from` versions of the firmware are not cached on your machine, then
-they will be downloaded for you.
-
-The `--port` option is used for manually specifiy the name of the COM port the device
-is connected to, e.g., `COM3` or `/dev/ttyACM0`. If this is not given, then the command
-will automatically look for a valid Dephy device and use the first one that it finds.
-
-
-### Configure-bt
-
-This command is used for updating the bt121 radio. Its usage is:
+#### Examples
+The goal is to have the command "read" fluidly. To that end, in order to bootload Regulate on an actpack from version 7.2.0 to version 9.1.0, we would do
 
 ```bash
-bootloader configure-bt <level> <address> <from> [--port|-p]
+bootload microcontroller re --from 7.2.0 --to 9.1.0 --hardware 4.1B --device actpack
 ```
 
-`level` specifies the Bluetooth gatt file level to use, e.g., `2`.
 
-`address` is the Bluetooth address of the device.
+### List
 
-`from` is the semantic version string of the firmware currently on Manage. This is
-necessary because the communication to the bt121 radio goes through manage. If this
-firmware isn't on your computer, it will be downloaded for you.
-
-The `--port` option is used for manually specifiy the name of the COM port the device
-is connected to, e.g., `COM3` or `/dev/ttyACM0`. If this is not given, then the command
-will automatically look for a valid Dephy device and use the first one that it finds.
-
-
-### Configure-xbee
-
-This command configures the xbee radio on the device. Its usage is:
+The `list` command is used to display information about what firmware is available to be bootloaded. The usage is:
 
 ```bash
-bootloader configure-xbee <address> <buddy address> <from> [--port|-p]
+bootload list [options]
 ```
 
-`address` is the Bluetooth address of the device being configured.
+The available options are:
+    * `--devices` : Displays the types of devices that can be bootloaded
+    * `--hardware` : Displays the rigid board versions that can be bootloaded
+    * `--versions` : Displays the firmware versions available to be bootloaded
 
-`buddy address` is the Bluetooth address of the device's companion.
-
-`from` is the semantic version string of the firmware currently on Manage. This is
-necessary because the communication to the bt121 radio goes through manage. If this
-firmware isn't on your computer, it will be downloaded for you.
-
-The `--port` option is used for manually specifiy the name of the COM port the device
-is connected to, e.g., `COM3` or `/dev/ttyACM0`. If this is not given, then the command
-will automatically look for a valid Dephy device and use the first one that it finds.
+If no options are given, then the available devices, hardware, and versions are all shown.

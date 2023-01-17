@@ -35,7 +35,6 @@ class FlashMicrocontrollerCommand(InitCommand):
         option("port", "-p", "Port the device is on, e.g., `COM3`.", flag=False),
         option("file", "-f", "Path to the firmware file.", flag=False),
         option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
-        option("interactive", "-i", "Guided tour through bootloading.", flag=True),
         option("side", "-s", "Either left or right.", flag=False),
         option("baudRate", "-b", "Device baud rate.", flag=False, default=230400),
     ]
