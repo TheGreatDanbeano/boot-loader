@@ -7,6 +7,8 @@ from cleo.helpers import option
 from bootloader.utilities.aws import get_s3_objects
 import bootloader.utilities.config as cfg
 
+from bootloader.utilities.aws import get_s3_object_info
+
 from .init import InitCommand
 
 
@@ -22,20 +24,21 @@ class ListCommand(InitCommand):
     options = [
         option("devices", "-d", "List devices that can be bootloaded.", flag=True),
         option("hardware", "-r", "List available hardware versions.", flag=True),
-        option("versions", None, "List firmware versions.", flag=True),
+        option("firmware", None, "List firmware versions.", flag=True),
+        option("c-libraries", None, "List available C libraries.", flag=True),
     ]
 
     help = """
-    Displays the devices, hardware versions, and firmware versions that are
-    available for bootloading.
+    Displays the devices, hardware versions, firmware versions, and versions
+    of the pre-compiled C libraries that are available for bootloading.
 
     Examples
     --------
     # Show all
-    > bootload ls
+    > bootload list
 
     # Show only devices
-    > bootload ls --devices
+    > bootload list --devices
     """
 
     # -----
@@ -50,69 +53,27 @@ class ListCommand(InitCommand):
 
         showDevices = self.option("devices")
         showHardware = self.option("hardware")
-        showVersions = self.option("versions")
+        showFirmware = self.option("firmware")
+        showLibraries = self.option("c-libraries")
 
-        _all = not (showDevices or showHardware or showVersions)
+        _all = not (showDevices or showHardware or showFirmware or showLibraries)
 
-        session = boto3.Session(profile_name=cfg.dephyProfile)
-        client = session.client("s3")
-        objects = get_s3_objects(cfg.firmwareBucket, client)
-        client.close()
-
-        info = self._parse_firmware_objects(objects)
+        fwInfo = get_s3_object_info(cfg.firmwareBucket)
+        libsInfo = get_s3_object_info(cfg.libsBucket)
 
         if showDevices:
-            self._list_devices(info)
+            self._list_devices(fwInfo)
         if showHardware:
-            self._list_hardware(info)
-        if showVersions:
-            self._list_versions(info)
+            self._list_hardware(fwInfo)
+        if showFirmware:
+            self._list_firmware(fwInfo)
+        if showLibraries:
+            self._list_libraries(libsInfo)
         if _all:
-            self._list_all(info)
+            self._list_all(fwInfo)
+            self._list_libraries(libsInfo)
 
         return 0
-
-    # -----
-    # _parse_firmware_objects
-    # -----
-    def _parse_firmware_objects(self: Self, objects: List[str]) -> dict:
-        """
-        Converts the list of full-path firmware file names into a
-        dictionary for easier display.
-
-        Parameters
-        ----------
-        objects : List[str]
-            List of full paths for firmware files from S3.
-
-        Returns
-        -------
-        info : dict
-            `objects` converted to a hierarchial dictionary form for
-            cleaner display.
-        """
-        info = {}
-
-        for obj in objects:
-            version, device, hardware, _ = obj.split("/")
-            if version not in info:
-                info[version] = {
-                    hardware: set(
-                        [
-                            device,
-                        ]
-                    )
-                }
-            else:
-                if hardware not in info[version]:
-                    info[version][hardware] = set(
-                        [
-                            device,
-                        ]
-                    )
-                else:
-                    info[version][hardware].add(device)
-        return info
 
     # -----
     # _list_devices
@@ -143,12 +104,20 @@ class ListCommand(InitCommand):
             self.line(f"\t- <info>{hw}</info>")
 
     # -----
-    # _list_versions
+    # _list_firmware
     # -----
-    def _list_versions(self: Self, info: dict) -> None:
+    def _list_firmware(self: Self, info: dict) -> None:
         self.line("Available versions:")
         for version in info:
             self.line(f"\t- <info>{version}</info>")
+
+    # -----
+    # _list_libraries
+    # -----
+    def _list_libraries(self: Self, libs: List[str]) -> None:
+        self.line("Available pre-compiled C libraries:")
+        for lib in libs:
+            self.line(f"\t- <info>{lib}</info>")
 
     # -----
     # _list_all

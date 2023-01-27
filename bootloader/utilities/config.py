@@ -26,6 +26,9 @@ toolsBucket = "dephy-bootloader-tools"
 # Private bucket where the firmware is stored
 firmwareBucket = "dephy-firmware"
 
+# Public bucket where the pre-compiled C libraries are stored
+libsBucket = "dephy-public-binaries"
+
 # Credentials profile name
 dephyProfile = "dephy"
 

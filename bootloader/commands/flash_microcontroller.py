@@ -12,6 +12,7 @@ from flexsea.device import Device
 from flexsea.utilities import download
 from flexsea.utilities import find_port
 
+from bootloader.utilities.aws import get_s3_object_info
 import bootloader.utilities.config as cfg
 
 from .init import InitCommand
@@ -81,10 +82,13 @@ class FlashMicrocontrollerCommand(InitCommand):
 
         port = self.option("port")
         br = int(self.option("baudRate"))
+
         if self.option("from"):
             cv = self.option("from")
         else:
-            raise RuntimeError("Must provide from version.")
+            libs = get_s3_object_info(cfg.libsBucket)
+            msg = "Please select the version of the firmware currently on the device:"
+            cv = self.choice(msg, libs)
 
         if not port:
             port = find_port(br, cv)
@@ -100,6 +104,10 @@ class FlashMicrocontrollerCommand(InitCommand):
     # -----
     def _build_firmware_file(self: Self) -> None:
         if self.option("file"):
+            try:
+                assert Path(self.option("file")).exists()
+            except AssertionError:
+                get_remote_file(self.option("file"), cfg.firmwareBucket)
             return self.option("file")
 
         if self.option("device"):
