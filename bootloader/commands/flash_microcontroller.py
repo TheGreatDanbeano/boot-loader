@@ -27,14 +27,15 @@ class FlashMicrocontrollerCommand(InitCommand):
 
     arguments = [
         argument("target", "Microcontroller to flash: habs, ex, mn, or re."),
+        argument("from", "Current firmware version, e.g., `7.2.0`."),
+        argument("to", "Desired firmware version, e.g., `9.1.0`."),
     ]
 
     options = [
-        option("from", "-c", "Current firmware version, e.g., `7.2.0`.", flag=False),
-        option("to", "-t", "Desired firmware version, e.g., `9.1.0`.", flag=False),
-        option("hardware", "-r", "Board hardware version, e.g., `4.1B`.", flag=False),
         option("port", "-p", "Port the device is on, e.g., `COM3`.", flag=False),
-        option("file", "-f", "Path to the firmware file.", flag=False),
+        option("current-firmware-file", None, "Current firmware file.", flag=False),
+        option("new-firmware-file", None, "New firmware file.", flag=False),
+        option("hardware", "-r", "Board hardware version, e.g., `4.1B`.", flag=False),
         option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
         option("side", "-s", "Either left or right.", flag=False),
         option("baudRate", "-b", "Device baud rate.", flag=False, default=230400),
@@ -45,7 +46,7 @@ class FlashMicrocontrollerCommand(InitCommand):
 
     Examples
     --------
-    bootload microcontroller mn --from 7.2.0 --to 9.1.0
+    bootload microcontroller mn 7.2.0 9.1.0
     """
 
     _device: None | Device = None
@@ -59,56 +60,49 @@ class FlashMicrocontrollerCommand(InitCommand):
     # handle
     # -----
     def handle(self: Self) -> int:
-        self._prep_device()
+        self._stylize()
+        self._setup_environment()
+        self._get_device()
+        self._get_new_firmware_file()
         self._set_tunnel_mode()
         self._flash()
 
         return 0
 
     # -----
-    # _prep_device
+    # _get_device
     # -----
-    def _prep_device(self: Self) -> None:
-        self._stylize()
-        self._setup()
+    def _get_device(self: Self) -> None:
+        # Only useful if using a file in a non-standard location or
+        # with a non-standard name, which applies mainly to internal
+        # Dephy use when testing, debugging, and developing
+        if self.option("current-firmware-file"):
+            libFile = self.option("current-firmware-file")
+        else:
+            libFile = ""
 
-        msg = "<warning>Please make sure the battery is removed "
-        msg += "and/or the power supply is disconnected!</warning>"
-        if not self.confirm(msg, False):
-            sys.exit(1)
-
-        self._target = self.argument("target")
-        assert self._target in cfg.microcontrollers
-
-        port = self.option("port")
+        self._port = self.option("port")
         br = int(self.option("baudRate"))
 
-        if self.option("from"):
-            cv = self.option("from")
-        else:
-            libs = get_s3_object_info(cfg.libsBucket)
-            msg = "Please select the version of the firmware currently on the device:"
-            cv = self.choice(msg, libs)
+        if not self._port:
+            self._port = find_port(br, self.argument("from"), libFile)
 
-        if not port:
-            port = find_port(br, cv)
-
-        self._device = Device(port, br, cv)
+        self._device = Device(self._port, br, self.argument("from"), libFile=libFile)
         self._device.open()
-        # Still need access to the port after the device has been deleted
-        self._port = port
-        self._fwFile = self._build_firmware_file()
 
     # -----
-    # _build_firmware_file
+    # _get_new_firmware_file
     # -----
-    def _build_firmware_file(self: Self) -> None:
-        if self.option("file"):
-            try:
-                assert Path(self.option("file")).exists()
-            except AssertionError:
-                get_remote_file(self.option("file"), cfg.firmwareBucket)
-            return self.option("file")
+    def _get_new_firmware_file(self: Self) -> None:
+        self._target = self.argument("target")
+        ext = cfg.firmwareExtensions[self._target]
+        fw = self.argument("to")
+
+        if self.option("new-firmware-file"):
+            if not Path(self.option("new-firmware-file")).exists():
+                get_remote_file(self.option("new-firmware-file"), cfg.firmwareBucket)
+            self._fwFile = self.option("new-firmware-file")
+            return
 
         if self.option("device"):
             _name = self.option("device")
@@ -118,21 +112,13 @@ class FlashMicrocontrollerCommand(InitCommand):
         if self.option("hardware"):
             hw = self.option("hardware")
         else:
-            raise RuntimeError("Must provide hardware.")
+            hw = self._device.rigidVersion
 
-        if self.option("to"):
-            fw = self.option("to")
-        else:
-            raise RuntimeError("Must provide to version.")
-
-        ext = cfg.firmwareExtensions[self._target]
-
-        # Legacy devices don't know their side (left or right)
-        if self._target == "mn" and _name != "actpack":
+        if self._target == "mn" and self._device.isChiral:
             if self.option("side"):
                 side = self.option("side")
             else:
-                raise RuntimeError("Must provide side information.")
+                side = self._device.deviceSide
             fwFile = (
                 f"{_name}_rigid-{hw}_{self._target}_firmware-{fw}_side-{side}.{ext}"
             )
@@ -147,12 +133,16 @@ class FlashMicrocontrollerCommand(InitCommand):
             fwObj = Path(fw).joinpath(_name, hw, fwFile).as_posix()
             download(fwObj, cfg.firmwareBucket, str(dest), cfg.dephyProfile)
 
-        return dest
+        self._fwFile = dest
 
     # -----
     # _set_tunnel_mode
     # -----
     def _set_tunnel_mode(self: Self) -> None:
+        msg = "<warning>Please make sure the battery is removed "
+        msg += "and/or the power supply is disconnected!</warning>"
+        if not self.confirm(msg, False):
+            sys.exit(1)
         self.write(f"Setting tunnel mode for {self._target}...")
 
         if not self._device.set_tunnel_mode(self._target, 20):

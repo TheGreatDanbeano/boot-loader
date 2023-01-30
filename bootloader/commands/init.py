@@ -46,7 +46,7 @@ class InitCommand(Command):
         Entry point for the command.
         """
         self._stylize()
-        self._setup()
+        self._setup_environment()
 
         return 0
 
@@ -60,9 +60,9 @@ class InitCommand(Command):
         self.add_style("success", fg="green")
 
     # -----
-    # _setup
+    # _setup_environment
     # -----
-    def _setup(self) -> None:
+    def _setup_environment(self) -> None:
         try:
             self.line(logo.dephyLogo)
         except UnicodeEncodeError:
