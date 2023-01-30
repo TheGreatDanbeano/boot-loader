@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List
 
+import boto3
 from botocore.client import BaseClient
 from flexsea.utilities import download
 
@@ -19,11 +20,10 @@ def get_s3_object_info(bucket: str) -> List[str] | dict:
     client.close()
 
     if bucket == cfg.firmwareBucket:
-        return self._parse_firmware_objects(objs)
-    elif bucket == cfg.libsBucket:
-        return self._parse_lib_objects(objs)
-    else:
-        raise ValueError("Unrecognized bucket.")
+        return _parse_firmware_objects(objs)
+    if bucket == cfg.libsBucket:
+        return _parse_lib_objects(objs)
+    raise ValueError("Unrecognized bucket.")
 
 
 # ============================================
@@ -124,7 +124,7 @@ def _parse_lib_objects(objects: List[str]) -> List[str]:
 # ============================================
 def get_remote_file(fName: str, bucket: str) -> None:
     """
-    Searches the given aws bucket for the given file. 
+    Searches the given aws bucket for the given file.
     """
     fPath = Path(fName)
     # https://tinyurl.com/4scnuk6c

@@ -12,7 +12,7 @@ from flexsea.device import Device
 from flexsea.utilities import download
 from flexsea.utilities import find_port
 
-from bootloader.utilities.aws import get_s3_object_info
+from bootloader.utilities.aws import get_remote_file
 import bootloader.utilities.config as cfg
 
 from .init import InitCommand
@@ -206,6 +206,8 @@ class FlashMicrocontrollerCommand(InitCommand):
             self._call_flash_tool()
             sleep(20)
 
+        if not self.confirm("Please power cycle device.", False):
+            sys.exit(1)
         self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
 
     # -----

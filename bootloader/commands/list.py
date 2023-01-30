@@ -1,10 +1,8 @@
 from typing import List
 from typing import Self
 
-import boto3
 from cleo.helpers import option
 
-from bootloader.utilities.aws import get_s3_objects
 import bootloader.utilities.config as cfg
 
 from bootloader.utilities.aws import get_s3_object_info
