@@ -11,6 +11,7 @@ from cleo.helpers import option
 from flexsea.device import Device
 from flexsea.utilities import download
 from flexsea.utilities import find_port
+import semantic_version as sem
 
 from bootloader.utilities.aws import get_remote_file
 import bootloader.utilities.config as cfg
@@ -28,10 +29,11 @@ class FlashMicrocontrollerCommand(InitCommand):
     arguments = [
         argument("target", "Microcontroller to flash: habs, ex, mn, or re."),
         argument("from", "Current firmware version, e.g., `7.2.0`."),
-        argument("to", "Desired firmware version, e.g., `9.1.0`."),
+        argument("to", "Desired firmware version, e.g., `9.1.0`, or firmware file."),
     ]
 
     options = [
+        option("lib", "-l", "C lib for interacting with current firmware.", flag=False),
         option("port", "-p", "Port the device is on, e.g., `COM3`.", flag=False),
         option("current-firmware-file", None, "Current firmware file.", flag=False),
         option("new-firmware-file", None, "New firmware file.", flag=False),
@@ -44,17 +46,32 @@ class FlashMicrocontrollerCommand(InitCommand):
     help = """
     Flashes new firmware onto manage, execute, regulate, or habsolute.
 
+    `target` must be one of: `mn`, `ex`, `re`, or `habs`.
+
+    `from` specifies the firmware version currently on the device. This is needed in
+    order to load the API for communicating with the device. Use the `list` command
+    to see the available versions.
+
+    `to` specifies the firmware version you would like to flash. If this is not a
+    semantic version string, it must be the full path to the firmware file you'd like
+    to flash.
+
+    `--lib` is used to specify the C library that should be used for communication with
+    the current firmware on the device. Even if this is set, `from` still needs to be
+    accurate so `flexsea` knows which API to use when calling functions from this lib
+    file.
+
     Examples
     --------
     bootload microcontroller mn 7.2.0 9.1.0
+    bootload microcontroller ex 10.1.0 7.2.0 --lib ~/my/path/10.1.0.so
+    bootload microcontroller re 7.2.0 ~/my/path/10.1.0 -r 4.1B
     """
 
     _device: None | Device = None
     _fwFile: str = ""
     _flashCmd: List[str] = []
     _nRetries: int = 5
-    _port: str = ""
-    _target: str = ""
 
     # -----
     # handle
@@ -73,36 +90,28 @@ class FlashMicrocontrollerCommand(InitCommand):
     # _get_device
     # -----
     def _get_device(self: Self) -> None:
-        # Only useful if using a file in a non-standard location or
-        # with a non-standard name, which applies mainly to internal
-        # Dephy use when testing, debugging, and developing
-        if self.option("current-firmware-file"):
-            libFile = self.option("current-firmware-file")
-        else:
-            libFile = ""
-
-        self._port = self.option("port")
-        br = int(self.option("baudRate"))
-
-        if not self._port:
-            self._port = find_port(br, self.argument("from"), libFile)
-
-        self._device = Device(self._port, br, self.argument("from"), libFile=libFile)
+        self._device = Device(
+            self.option("port"),
+            int(self.option("baudRate")),
+            self.argument("from"),
+            libFile=self.option("lib")
+        )
         self._device.open()
 
     # -----
     # _get_new_firmware_file
     # -----
     def _get_new_firmware_file(self: Self) -> None:
-        self._target = self.argument("target")
-        ext = cfg.firmwareExtensions[self._target]
         fw = self.argument("to")
 
-        if self.option("new-firmware-file"):
-            if not Path(self.option("new-firmware-file")).exists():
-                get_remote_file(self.option("new-firmware-file"), cfg.firmwareBucket)
-            self._fwFile = self.option("new-firmware-file")
+        if not sem.validate(fw):
+            if not Path(fw).exists():
+                get_remote_file(fw, cfg.firmwareBucket)
+            self._fwFile = fw 
             return
+
+        self._target = self.argument("target")
+        ext = cfg.firmwareExtensions[target]
 
         if self.option("device"):
             _name = self.option("device")
