@@ -103,6 +103,7 @@ class FlashMicrocontrollerCommand(InitCommand):
     # -----
     def _get_new_firmware_file(self: Self) -> None:
         fw = self.argument("to")
+        self._target = self.argument("target")
 
         if not sem.validate(fw):
             if not Path(fw).exists():
@@ -110,8 +111,7 @@ class FlashMicrocontrollerCommand(InitCommand):
             self._fwFile = fw 
             return
 
-        self._target = self.argument("target")
-        ext = cfg.firmwareExtensions[target]
+        ext = cfg.firmwareExtensions[self._target]
 
         if self.option("device"):
             _name = self.option("device")
