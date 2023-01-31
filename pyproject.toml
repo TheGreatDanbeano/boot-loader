@@ -12,6 +12,7 @@ flexsea = {path = "/home/latitude/Code/work/FlexSEA/Actuator-Package", develop =
 cleo = "^2.0.1"
 pyserial = "^3.5"
 boto3 = "^1.26.44"
+semantic-version = "^2.10.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.12.0"
