@@ -72,6 +72,7 @@ class FlashMicrocontrollerCommand(InitCommand):
     _fwFile: str = ""
     _flashCmd: List[str] = []
     _nRetries: int = 5
+    _port: str = ""
 
     # -----
     # handle
@@ -96,6 +97,7 @@ class FlashMicrocontrollerCommand(InitCommand):
             self.argument("from"),
             libFile=self.option("lib")
         )
+        self._port = self._device.port
         self._device.open()
 
     # -----
