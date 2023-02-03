@@ -7,13 +7,13 @@ import bootloader.utilities.config as cfg
 
 from bootloader.utilities.aws import get_s3_object_info
 
-from .init import InitCommand
+from .base_command import BaseCommand
 
 
 # ============================================
 #                 ListCommand
 # ============================================
-class ListCommand(InitCommand):
+class ListCommand(BaseCommand):
 
     name = "list"
 
@@ -39,6 +39,8 @@ class ListCommand(InitCommand):
     > bootload list --devices
     """
 
+    _pad: str = "    "
+
     # -----
     # handle
     # -----
@@ -46,8 +48,7 @@ class ListCommand(InitCommand):
         """
         Entry point for the command.
         """
-        self._stylize()
-        self._check_keys()
+        self.call("init")
 
         showDevices = self.option("devices")
         showHardware = self.option("hardware")

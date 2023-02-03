@@ -1,6 +1,5 @@
 from pathlib import Path
 import re
-import subprocess as sub
 import sys
 from time import sleep
 from typing import List
@@ -8,58 +7,39 @@ from typing import Self
 
 from cleo.helpers import argument
 from cleo.helpers import option
-from flexsea.device import Device
 from flexsea.utilities import download
-from flexsea.utilities import find_port
 import semantic_version as sem
 
 from bootloader.utilities.aws import get_remote_file
 import bootloader.utilities.config as cfg
 
-from .init import InitCommand
+from .base_flash_command import BaseFlashCommand
 
 # ============================================
 #        FlashMicrocontrollerCommand
 # ============================================
-class FlashMicrocontrollerCommand(InitCommand):
+class FlashMicrocontrollerCommand(BaseFlashCommand):
     name = "microcontroller"
 
     description = "Flashes new firmware onto manage, execute, regulate, or habsolute."
-
-    arguments = [
-        argument("target", "Microcontroller to flash: habs, ex, mn, or re."),
-        argument("from", "Current firmware version, e.g., `7.2.0`."),
-        argument("to", "Desired firmware version, e.g., `9.1.0`, or firmware file."),
-    ]
-
-    options = [
-        option("lib", "-l", "C lib for interacting with current firmware.", flag=False),
-        option("port", "-p", "Port the device is on, e.g., `COM3`.", flag=False),
-        option("current-firmware-file", None, "Current firmware file.", flag=False),
-        option("new-firmware-file", None, "New firmware file.", flag=False),
-        option("hardware", "-r", "Board hardware version, e.g., `4.1B`.", flag=False),
-        option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
-        option("side", "-s", "Either left or right.", flag=False),
-        option("baudRate", "-b", "Device baud rate.", flag=False, default=230400),
-    ]
 
     help = """
     Flashes new firmware onto manage, execute, regulate, or habsolute.
 
     `target` must be one of: `mn`, `ex`, `re`, or `habs`.
 
-    `from` specifies the firmware version currently on the device. This is needed in
-    order to load the API for communicating with the device. Use the `list` command
-    to see the available versions.
+    `currentFirmware` specifies the firmware version currently on the device. This
+    is needed in order to load the API for communicating with the device. Use the
+    `list` command to see the available versions.
 
     `to` specifies the firmware version you would like to flash. If this is not a
     semantic version string, it must be the full path to the firmware file you'd like
     to flash.
 
     `--lib` is used to specify the C library that should be used for communication with
-    the current firmware on the device. Even if this is set, `from` still needs to be
-    accurate so `flexsea` knows which API to use when calling functions from this lib
-    file.
+    the current firmware on the device. Even if this is set, `currentFirmware` still
+    needs to be accurate so `flexsea` knows which API to use when calling functions
+    from this lib file.
 
     Examples
     --------
@@ -68,37 +48,41 @@ class FlashMicrocontrollerCommand(InitCommand):
     bootload microcontroller re 7.2.0 ~/my/path/10.1.0 -r 4.1B
     """
 
-    _device: None | Device = None
-    _fwFile: str = ""
-    _flashCmd: List[str] = []
-    _nRetries: int = 5
-    _port: str = ""
+    # -----
+    # __new__
+    # -----
+    def __new__(cls):
+        obj = super().__new__(cls)
+
+        args = [
+            argument("target", "Microcontroller to flash: habs, ex, mn, or re."),
+            argument("to", "Desired firmware version, e.g., `9.1.0`, or file."),
+        ]
+
+        obj.arguments = args[0] + obj.arguments + args[1]
+
+        opts = [
+            option("hardware", "-r", "Board version, e.g., `4.1B`.", flag=False),
+            option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
+            option("side", "-s", "Either left or right.", flag=False),
+        ]
+
+        for opt in opts:
+            obj.options.append(opt)
+
+        return obj
 
     # -----
     # handle
     # -----
     def handle(self: Self) -> int:
-        self._stylize()
-        self._setup_environment()
+        self.call("init")
         self._get_device()
         self._get_new_firmware_file()
         self._set_tunnel_mode()
         self._flash()
 
         return 0
-
-    # -----
-    # _get_device
-    # -----
-    def _get_device(self: Self) -> None:
-        self._device = Device(
-            self.option("port"),
-            int(self.option("baudRate")),
-            self.argument("from"),
-            libFile=self.option("lib")
-        )
-        self._port = self._device.port
-        self._device.open()
 
     # -----
     # _get_new_firmware_file
@@ -110,7 +94,7 @@ class FlashMicrocontrollerCommand(InitCommand):
         if not sem.validate(fw):
             if not Path(fw).exists():
                 get_remote_file(fw, cfg.firmwareBucket)
-            self._fwFile = fw 
+            self._fwFile = fw
             return
 
         ext = cfg.firmwareExtensions[self._target]
@@ -145,46 +129,6 @@ class FlashMicrocontrollerCommand(InitCommand):
             download(fwObj, cfg.firmwareBucket, str(dest), cfg.dephyProfile)
 
         self._fwFile = dest
-
-    # -----
-    # _set_tunnel_mode
-    # -----
-    def _set_tunnel_mode(self: Self) -> None:
-        msg = "<warning>Please make sure the battery is removed "
-        msg += "and/or the power supply is disconnected!</warning>"
-        if not self.confirm(msg, False):
-            sys.exit(1)
-        self.write(f"Setting tunnel mode for {self._target}...")
-
-        if not self._device.set_tunnel_mode(self._target, 20):
-            msg = "\n<error>Error</error>: failed to activate bootloader for: "
-            msg += f"<info>`{self._target}`</info>"
-            self.line(msg)
-            sys.exit(1)
-
-        self.overwrite(
-            f"Setting tunnel mode for {self._target}... <success>✓</success>\n"
-        )
-
-    # -----
-    # _call_flash_tool
-    # -----
-    def _call_flash_tool(self: Self) -> None:
-        for _ in range(self._nRetries):
-            try:
-                proc = sub.run(
-                    self._flashCmd, capture_output=False, check=True, timeout=360
-                )
-            except sub.CalledProcessError:
-                continue
-            except sub.TimeoutExpired:
-                self.line("Timeout.")
-                sys.exit(1)
-            if proc.returncode == 0:
-                break
-        if proc.returncode != 0:
-            self.line("Error.")
-            sys.exit(1)
 
     # -----
     # _flash
