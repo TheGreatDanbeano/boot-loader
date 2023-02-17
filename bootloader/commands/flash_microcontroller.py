@@ -18,6 +18,7 @@ import bootloader.utilities.config as cfg
 
 from .init import InitCommand
 
+
 # ============================================
 #        FlashMicrocontrollerCommand
 # ============================================
@@ -28,15 +29,13 @@ class FlashMicrocontrollerCommand(InitCommand):
 
     arguments = [
         argument("target", "Microcontroller to flash: habs, ex, mn, or re."),
-        argument("from", "Current firmware version, e.g., `7.2.0`."),
+        argument("from", "Current firmware version on Manage, e.g., `7.2.0`."),
         argument("to", "Desired firmware version, e.g., `9.1.0`, or firmware file."),
     ]
 
     options = [
         option("lib", "-l", "C lib for interacting with current firmware.", flag=False),
         option("port", "-p", "Port the device is on, e.g., `COM3`.", flag=False),
-        option("current-firmware-file", None, "Current firmware file.", flag=False),
-        option("new-firmware-file", None, "New firmware file.", flag=False),
         option("hardware", "-r", "Board hardware version, e.g., `4.1B`.", flag=False),
         option("device", "-d", "Device to flash, e.g., `actpack`.", flag=False),
         option("side", "-s", "Either left or right.", flag=False),
@@ -79,6 +78,8 @@ class FlashMicrocontrollerCommand(InitCommand):
     # -----
     def handle(self: Self) -> int:
         self._stylize()
+        self._configure_interaction()
+        self._configure_unicode()
         self._setup_environment()
         self._get_device()
         self._get_new_firmware_file()
@@ -163,7 +164,7 @@ class FlashMicrocontrollerCommand(InitCommand):
             sys.exit(1)
 
         self.overwrite(
-            f"Setting tunnel mode for {self._target}... <success>✓</success>\n"
+            f"Setting tunnel mode for {self._target}... {self._SUCCESS}\n"
         )
 
     # -----
@@ -219,7 +220,7 @@ class FlashMicrocontrollerCommand(InitCommand):
 
         if not self.confirm("Please power cycle device.", False):
             sys.exit(1)
-        self.overwrite(f"Flashing {self._target}... <success>✓</success>\n")
+        self.overwrite(f"Flashing {self._target}... {self._SUCCESS}\n")
 
     # -----
     # _flashCmd

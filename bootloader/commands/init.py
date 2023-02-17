@@ -37,6 +37,7 @@ class InitCommand(Command):
     """
 
     _pad: str = "    "
+    _SUCCESS: str = ""
 
     # -----
     # handle
@@ -46,6 +47,8 @@ class InitCommand(Command):
         Entry point for the command.
         """
         self._stylize()
+        self._configure_interaction()
+        self._configure_unicode()
         self._setup_environment()
 
         return 0
@@ -58,6 +61,31 @@ class InitCommand(Command):
         self.add_style("warning", fg="yellow")
         self.add_style("error", fg="red")
         self.add_style("success", fg="green")
+
+    # -----
+    # _configure_interaction
+    # -----
+    def _configure_interaction(self) -> None:
+        """
+        On some terminals interaction is set to off by default for some
+        reason, despite `--no-interaction` not being set. This makes
+        sure interactivity is on unless expressly turned off.
+        """
+        if not self.io.is_interactive() and not self.option("no-interaction"):
+            self.io.interactive(True)
+
+    # -----
+    # _configure_unicode
+    # -----
+    def _configure_unicode(self) -> None:
+        """
+        The checkmarks used to indicate successful completion on stdout
+        only work if the terminal supports unicode.
+        """
+        if sys.stdout.encoding.lower().startswith("utf"):
+            self._SUCCESS = "<success>✓</success>"
+        else:
+            self._SUCCESS = "SUCCESS"
 
     # -----
     # _setup_environment
@@ -117,7 +145,7 @@ class InitCommand(Command):
         except AssertionError as err:
             raise exceptions.UnsupportedOSError(currentOS, cfg.supportedOS) from err
 
-        self.overwrite("Checking OS... <success>✓</success>\n")
+        self.overwrite(f"Checking OS... {self._SUCCESS}\n")
 
     # -----
     # _setup_cache
@@ -132,7 +160,7 @@ class InitCommand(Command):
         cfg.firmwareDir.mkdir(parents=True, exist_ok=True)
         cfg.toolsDir.mkdir(parents=True, exist_ok=True)
 
-        self.overwrite("Setting up cache... <success>✓</success>\n")
+        self.overwrite(f"Setting up cache... {self._SUCCESS}\n")
 
     # -----
     # _check_keys
@@ -184,7 +212,7 @@ class InitCommand(Command):
             finally:
                 fd.close()
 
-        self.overwrite("Checking for access keys... <success>✓</success>\n")
+        self.overwrite(f"Checking for access keys... {self._SUCCESS}\n")
 
     # -----
     # _check_tools
@@ -236,8 +264,8 @@ class InitCommand(Command):
                         extractedDest = Path(os.path.dirname(dest)).joinpath(base)
                         archive.extractall(extractedDest)
 
-                self.overwrite("\tDownloading... <success>✓</success>\n")
+                self.overwrite(f"\tDownloading... {self._SUCCESS}\n")
 
             else:
-                msg = f"Searching for: <info>{tool}</info>...<success>✓</success>\n"
+                msg = f"Searching for: <info>{tool}</info>...{self._SUCCESS}\n"
                 self.overwrite(f"{msg}")
