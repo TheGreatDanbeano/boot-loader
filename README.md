@@ -2,6 +2,22 @@
 
 This is a tool for loading firmware onto Dephy's devices.
 
+## AWS Keys
+
+Contact the software team lead (Carlos Asmat: casmat@dephy.com) and request access to AWS. This is
+where the device version python libraries are stored and can only be accessed via the secure keys.
+Once you receive your keys, create a folder in the home directory (~) called .aws and create a file
+within this directory called credentials. Edit the credentials file to contain the following:
+
+```bash
+[default]
+aws_access_key_id=<YOUR ACCES KEY ID HERE>
+aws_secret_access_key=<YOUR SECRET ACCESS KEY HERE>
+
+[dephy]
+aws_access_key_id=<YOUR ACCES KEY ID HERE>
+aws_secret_access_key=<YOUR SECRET ACCESS KEY HERE>
+```
 
 ## Installation
 
